@@ -11,7 +11,7 @@ export default function Home() {
         width="80%"
         height="166"
         allow="autoplay"
-        src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1872600960&color=%23ff0000&auto_play=true&hide_related=true&show_comments=true&show_user=false&show_reposts=false&show_teaser=false">
+        src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1872600960&color=%239c9c94&auto_play=true&hide_related=true&show_comments=true&show_user=false&show_reposts=false&show_teaser=false">
       </iframe>
       <iframe 
         className="sc-player"
