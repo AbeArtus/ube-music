@@ -1,0 +1,21 @@
+
+.page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-content: center;
+    margin-top: 54px;
+    gap: 24px;
+
+    .cat {
+        max-width: 320px;
+        min-width: 220px;
+        width: 100%;
+        margin-bottom: 54px;
+    }
+
+    .current-song {
+        margin: 32px;
+    }
+
+}

@@ -1,0 +1,16 @@
+{
+  "version": "4",
+  "specifiers": {
+    "npm:create-next-app@latest": "15.2.4"
+  },
+  "npm": {
+    "create-next-app@15.2.4": {
+      "integrity": "sha512-fZCubdZiqqKKRMYon2n3NfBGmKSSJjNg/kcHk3TrmuYinCEly7NofHVHBzaNL7+SOedYNa3NOhedBAmDbO3IBw=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@std/assert@1"
+    ]
+  }
+}
