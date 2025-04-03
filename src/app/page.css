@@ -10,12 +10,16 @@
     .cat {
         max-width: 320px;
         min-width: 220px;
-        width: 100%;
+        width: auto;
+        height: auto;
         margin-bottom: 54px;
     }
 
     .sc-player {
         margin: 32px;
     }
-
+    div#tsparticles {
+        z-index: -1;
+        opacity: .3;
+    }
 }
