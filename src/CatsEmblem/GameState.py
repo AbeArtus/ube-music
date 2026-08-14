@@ -40,7 +40,6 @@ class GameState:
         self.lastPos = Position()
 
     def save_game(self):
-        """Save the current game state to persistent storage."""
         saveData = get_save_data()
 
         saveData.delItem("gameState-bank")

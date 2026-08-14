@@ -1,15 +1,171 @@
 .catsemblem-page {
   margin: 0;
   padding: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   background: #000;
 }
 
-.catsemblem-frame {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
+.catsemblem-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 2px solid #555;
+  background: #111;
+}
+
+.catsemblem-embed {
+  position: relative;
+  width: 144px;
+  height: 80px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 16px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  /* add a shimmer effect to the canvas while the game is loading  make the movement linear though*/
+  background: linear-gradient(90deg, #111 25%, #202020 50%, #111 75%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.catsemblem-embed canvas {
+  image-rendering: pixelated;
+  /* pythons.js recalculates and re-applies inline width/height on load and
+     on every window resize; !important keeps the canvas locked to a static
+     size instead of dynamically scaling to fill the viewport. */
+  width: 144px !important;
+  height: 80px !important;
+}
+
+.catsemblem-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  gap: 16px;
+  margin-top: 32px;
+  margin-bottom: 48px;
+}
+
+.catsemblem-dpad {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 24px);
+  grid-template-rows: repeat(3, 24px);
+}
+
+.dpad-btn {
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  background: #333;
+  border: 1px solid #555;
+  color: #eee;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dpad-up:active,
+.dpad-up.pressed {
+  background: linear-gradient(to top, #333, #1a1a1a);
+}
+
+.dpad-left:active,
+.dpad-left.pressed {
+  background: linear-gradient(to left, #333, #1a1a1a);
+}
+
+.dpad-right:active,
+.dpad-right.pressed {
+  background: linear-gradient(to right, #333, #1a1a1a);
+}
+
+.dpad-down:active,
+.dpad-down.pressed {
+  background: linear-gradient(to bottom, #333, #1a1a1a);
+}
+
+.dpad-up {
+  grid-column: 2;
+  grid-row: 1;
+  border-radius: 4px 4px 0 0;
+  border-bottom: none;
+}
+
+.dpad-left {
+  grid-column: 1;
+  grid-row: 2;
+  border-radius: 4px 0 0 4px;
+  border-right: none;
+}
+
+.dpad-right {
+  grid-column: 3;
+  grid-row: 2;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+.dpad-down {
+  grid-column: 2;
+  grid-row: 3;
+  border-radius: 0 0 4px 4px;
+  border-top: none;
+}
+
+.dpad-center {
+  grid-column: 2;
+  grid-row: 2;
+  border: none;
+}
+
+.catsemblem-abbuttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ab-btn {
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #333;
+  border: 2px solid #555;
+  color: #eee;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ab-btn:active,
+.ab-btn.pressed {
+  background: #1a1a1a;
+}
+
+.btn-b {
+  margin-top: 20px;
 }

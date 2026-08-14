@@ -12,7 +12,7 @@ import { loadSlim } from "tsparticles-slim";
 export default function Home() {
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
-}, []);
+  }, []);
   const ImageRef = useRef<HTMLImageElement>(null);
 
 
