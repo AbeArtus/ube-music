@@ -277,12 +277,12 @@ class ActTwoLevels:
 			houses=[
 				House(
 					position=Position(16, 10),
-					preVisitedDialogs=Dialog(
+					preVisitedDialogs=[Dialog(
 						lines=["I need","strong","wizard"],
 						left_cats=[npc],
 						right_cats=[get_cat_at_position(Position(16, 10))],
 						currentlyTalking='npc',
-					),
+					)],
 					dialogs=[Dialog(
 						lines=["I see","strong","wizard"],
 						left_cats=[npc],
@@ -301,11 +301,11 @@ class ActTwoLevels:
 				),
 				House(
 					position=Position(17, 10),
-					preVisitedDialogs=Dialog(
+					preVisitedDialogs=[Dialog(
 						lines=["I need","strong","warrior"],
 						left_cats=[npc],
 						right_cats=[get_cat_at_position(Position(17, 10))],
-					),
+					)],
 					dialogs=[Dialog(
 						lines=["Hmm","you will","need this"],
 						left_cats=[npc],
