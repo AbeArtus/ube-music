@@ -367,8 +367,8 @@ class ActTwoLevels:
 						right_cats=[npc],
 						currentlyTalking='npc'
 					), Dialog(
-						lines=["Received","a Rabbit's Foot"],
-						lambda_after=lambda: give_item(Position(1, 1), itemDict['RabbitsFoot'])
+						lines=["Received","a Rabbit's", "Foot"],
+						lambda_after=lambda: give_item(Position(1, 1), itemDict['RabFoot'])
 					)],
 					visitCondition=lambda: can_give_item(Position(1, 1))
 				), House(
@@ -390,7 +390,7 @@ class ActTwoLevels:
 						currentlyTalking='npc',
 						lambda_after=lambda: give_item(Position(2, 1), itemDict['VoidSwd'])
 					), Dialog(
-						lines=["Received","a Void Sword"],
+						lines=["Received","Void Sword"],
 					)],
 					visitCondition= lambda: can_give_item(Position(2, 1)),
 				), House(
