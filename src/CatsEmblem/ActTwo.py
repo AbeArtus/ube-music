@@ -282,7 +282,7 @@ class ActTwoLevels:
 					), Dialog(
 						lines=["Received","a Necromancy","Tome"]
 					)],
-					visitCondition=house_condition(Position(16, 10))
+					visitCondition=lambda: house_condition(Position(16, 10))
 				),
 				House(
 					position=Position(17, 10),
@@ -300,7 +300,7 @@ class ActTwoLevels:
 						lines=["Received","a Axe"],
 						lambda_after=lambda: give_item(Position(17, 10), itemDict['Axe'])
 					)],
-					visitCondition=house_condition2(Position(17, 10))
+					visitCondition=lambda: house_condition2(Position(17, 10))
 				)
 			]
 		)
@@ -355,7 +355,7 @@ class ActTwoLevels:
 						lines=["Received","a Rabbit's Foot"],
 						lambda_after=lambda: give_item(Position(1, 1), itemDict['RabbitsFoot'])
 					)],
-					visitCondition=can_give_item(Position(1, 1))
+					visitCondition=lambda: can_give_item(Position(1, 1))
 				), House(
 					position=Position(2, 1),
 					dialogs=[Dialog(
@@ -377,7 +377,7 @@ class ActTwoLevels:
 					), Dialog(
 						lines=["Received","a Void Sword"],
 					)],
-					visitCondition=can_give_item(Position(2, 1)),
+					visitCondition= lambda: can_give_item(Position(2, 1)),
 				), House(
 					position=Position(0, 10),
 					preVisitedDialogs=[Dialog(
