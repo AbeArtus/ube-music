@@ -583,6 +583,8 @@ class GameState:
 
         def check_house_condition():
             house = self.cat_is_on_house()
+            if not selectedCat:
+                return False
             if selectedCat and selectedCat.exhausted:
                 return False
             if not house:
@@ -644,16 +646,9 @@ class GameState:
         def visit_house():
             house = self.cat_is_on_house()
             selCat = self.get_selected_cat()
-            if not house.can_visit():
-                for dialog in house.preVisitedDialogs:
-                    self.add_dialog(dialog)
-            elif not house.visited:
-                house.visit()
-                for dialog in house.dialogs:
-                    self.add_dialog(dialog)
-            else:
-                for dialog in house.postVisitDialog:
-                    self.add_dialog(dialog)
+            houseDialogs = house.get_dialogs()
+            for dialog in houseDialogs:
+                self.add_dialog(dialog)
             selCat.set_exhausted(True)
             selCat.set_moved(True)
             exit_menu()
@@ -716,7 +711,7 @@ class GameState:
 
         def can_press():
             cat = self.get_selected_cat()
-            if not cat:
+            if not cat or cat.exhausted:
                 return False
             for button in self.level.buttons:
                 if button.position == cat.position and button.can_press():
@@ -737,6 +732,7 @@ class GameState:
                         currentlyTalking=cat.name,
                         lines=["*pressed the", "button*"],
                     ))
+                    selectedCat.set_exhausted(True)
                     exit_menu()
                     break
 

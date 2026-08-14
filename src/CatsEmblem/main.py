@@ -25,6 +25,7 @@ thumby.display.setFPS(10)
 render_loading_screen("Loading")
 
 from MapData import get_tile_data, canWalkOn, tileEvation
+
 checkClearMem("MapData imported")
 from Items import weaponAdvantages
 render_loading_screen("Loading.")
@@ -269,7 +270,7 @@ def calculate_damage(attacker: Cat, defender: Cat):
 
 	crit_chance = (attacker.stats.luck * (1.5 if hasClassAdvantage or hasWeaponAdvantage else 1) * (2 if attackerLowHP else 1) + assist )
 	randInt = random.randint(1, 100)
-	if randInt < crit_chance:
+	if randInt < crit_chance or attacker.stats.luck == randInt:
 		bonus_damage += base_damage
 
 	destroyed = attackerWeapon.use_weapon()
@@ -443,13 +444,14 @@ def get_attack_tile(cat: Cat):
 				potential_targets.append((pos, p, diff))
 				break
 
-	for house in gameState.level.houses:
-		if house.destroyed or abs(house.position.x - cat.position.x) + abs(house.position.y - cat.position.y) > cat.stats.range:
-			continue
-		for pos in domain:
-			if pos.x == house.position.x and pos.y == house.position.y:
-				potential_targets.append((pos, None, 0))
-				break
+	if not potential_targets:
+		for house in gameState.level.houses:
+			if house.destroyed or abs(house.position.x - cat.position.x) + abs(house.position.y - cat.position.y) > cat.stats.range:
+				continue
+			for pos in domain:
+				if pos.x == house.position.x and pos.y == house.position.y:
+					potential_targets.append((pos, None, 0))
+					break
 
 	if not potential_targets and cat.aiType == "path" and cat.aiPath and not cat.moved:
 		nearest_path_point = {"position": None, "distance": float('inf')}
@@ -597,7 +599,7 @@ async def main():
 
 			if dialog.timeout:
 				thumby.display.update()
-				await asyncio.sleep(dialog.timeout)
+				sleep(dialog.timeout)
 				gameState.pop_dialog()
 			else:
 				if thumby.buttonA.justPressed():
@@ -617,7 +619,7 @@ async def main():
 				if gameState.has_saved_game():
 					gameState.load_game()
 					gameState.state = 'map'
-	
+		
 			menu_options = [
 				Option(
 					label= "New Game",
@@ -637,7 +639,7 @@ async def main():
 					title=[lambda: "Main Menu"],
 					leave_action=lambda: setattr(gameState, 'state', 'title')
 				)
-		
+			
 				gameState.enter_menu(title_menu)
 
 		elif gameState.state == 'map':
@@ -693,10 +695,10 @@ async def main():
 		elif gameState.state == 'menu':
 			if gameState.menu:
 				thumby.display.fill(thumby.display.WHITE)
-			
+				
 				if gameState.menu.title and gameState.menu.menu_index < len(gameState.menu.title):
 					thumby.display.drawText(gameState.menu.title[gameState.menu.menu_index](), 2, 0, thumby.display.DARKGRAY)
-	
+		
 				visible_options, offset = gameState.menu.get_visible_options()
 				for i, menu_option in enumerate(visible_options):
 					selected = thumby.display.BLACK if i + offset == gameState.menu.option_index else thumby.display.DARKGRAY
@@ -712,20 +714,20 @@ async def main():
 					gameState.menu.option_index -= 1
 				elif thumby.buttonD.justPressed() and gameState.menu.option_index < len(visible_options) - 1:
 					gameState.menu.option_index += 1
-	
+		
 				elif thumby.buttonL.justPressed() and gameState.menu.menu_index > 0:
 					gameState.menu.menu_index -= 1
 					gameState.menu.option_index = 0
-	
+		
 				elif thumby.buttonR.justPressed() and gameState.menu.menu_index < len(gameState.menu.options) - 1:
 					gameState.menu.menu_index += 1
 					gameState.menu.option_index = 0
-	
+		
 				elif thumby.buttonA.justPressed():
 					valid_options = gameState.menu.get_options()
 					if valid_options:
 						valid_options[gameState.menu.option_index].action()
-	
+		
 				elif thumby.buttonB.justPressed():
 					if gameState.menu.leave_action:
 						gameState.menu.leave_action()
@@ -759,7 +761,7 @@ async def main():
 
 				if thumby.buttonA.justPressed():
 					selected_enemy = enemies_in_range[option]
-				
+					
 					battle(selected_cat, selected_enemy)
 					selected_cat.set_exhausted(True)
 					gameState.cancel_cat_select()
@@ -769,7 +771,7 @@ async def main():
 					if selected_cat: gameState.update_selector_position(selected_cat.position.x, selected_cat.position.y)
 					gameState.open_unit_menu()
 					option = 0
-	
+		
 		elif gameState.state == 'enemy-turn':
 			if frame % 10 == 1:
 				if activeEnemy:

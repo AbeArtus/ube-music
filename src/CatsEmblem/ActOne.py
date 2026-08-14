@@ -508,7 +508,7 @@ class ActOneLevels:
 		return level
 
 	def _build_level5():
-		from Shared import get_npc, get_bub
+		from Shared import get_npc
 		from MapData import get_map
 		npc = get_npc()
 
@@ -533,8 +533,8 @@ class ActOneLevels:
 		level = Level(
 			map=get_map(5),
 			enemies=[
-				generate_enemy(3, Position(1, 6), name='mut'),
-				generate_enemy(4, Position(5, 5), name='mut'),
+				generate_enemy(3, Position(1, 6), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(5, 5), name='mut', weapon='Sword'),
 				generate_enemy(5, Position(5, 7), name='mut', weapon='Slngsht'),
 				generate_enemy(4, Position(4, 6), name='mut', ai='path', path=[Position(8, 1)]),
 				generate_enemy(3, Position(4, 15), name='mut', ai='path', path=[Position(11, 15), Position(14, 2)]),

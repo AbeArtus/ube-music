@@ -98,15 +98,16 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(6),
 			enemies=[
-				generate_enemy(3, Position(6, 8), name='mut'),
-				generate_enemy(4, Position(8, 7), name='mut'),
-				generate_enemy(3, Position(7, 13), name='mut'),
-				generate_enemy(4, Position(7, 3), name='mut'),
-				generate_enemy(5, Position(13, 13), name='mut', weapon='Slngsht'),
+				generate_enemy(3, Position(6, 8), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(8, 7), name='mut', weapon='Sword'),
+				generate_enemy(3, Position(7, 13), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(7, 3), name='mut', weapon='Sword'),
+				generate_enemy(5, Position(13, 13), name='mut', weapon='Sword'),
 				generate_enemy(5, Position(11, 8), name='mut', weapon='LongBow', classType='sniper'),
 				generate_enemy(6, Position(15, 8), name='mut', weapon='Mace', classType='warrior'),
 				generate_enemy(5, Position(17, 8), name='mut', weapon='EarthTm', classType='wizard'),
 				generate_enemy(7, Position(16, 3), name='mut', weapon='LghtngTm', classType='wizard', ai='stand'),
+				bub
 			],
 			number=6,
 			seizePosition=Position(16, 3),
@@ -163,8 +164,8 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(7),
 			enemies=[
-				generate_enemy(4, Position(9, 7), name='mut'),
-				generate_enemy(3, Position(10, 8), name='mut'),
+				generate_enemy(4, Position(9, 7), name='mut', weapon='Sword'),
+				generate_enemy(3, Position(10, 8), name='mut', weapon='Sword'),
 				generate_enemy(4, Position(3, 4), name='mut', ai='path', path=[Position(0, 8), Position(2, 11)]),
 				generate_enemy(5, Position(4, 4), name='mut', ai='path', path=[Position(1, 8), Position(3, 11)]),
 				generate_enemy(4, Position(6, 11), name='mut', weapon='Slngsht'),
@@ -228,7 +229,7 @@ class ActTwoLevels:
 						lines=["Received","a Rabbit's Foot"],
 						lambda_after=lambda: give_item(Position(5,7), itemDict['RabFoot'])
 					)],
-					postVisitedDialog=Dialog(
+					postVisitDialog=Dialog(
 						lines=["I hope","you use it","well"],
 						left_cats=[get_cat_at_position(Position(5, 7))],
 						right_cats=[npc],
@@ -263,9 +264,9 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(8),
 			enemies=[
-				generate_enemy(6, Position(8, 11), name ='jr'),
-				generate_enemy(7, Position(6, 5), name='mini'),
-				generate_enemy(7, Position(5, 5), name='l'),
+				generate_enemy(6, Position(8, 11), name ='jr', weapon='Sword'),
+				generate_enemy(7, Position(6, 5), name='mini', weapon='Mace'),
+				generate_enemy(7, Position(5, 5), name='l', weapon='Spear'),
 				generate_enemy(8, Position(3, 5), name='beef', classType='warrior', weapon='Spear'),
 				generate_enemy(8, Position(4, 5), name='wago', classType='sniper', weapon='Repeater'),
 				generate_enemy(9, Position(4, 2), ai='stand', name='xl', weapon='Axe', classType='warrior'),
@@ -323,8 +324,8 @@ class ActTwoLevels:
 		from MapData import get_map
 		npc = get_npc()
 
-		pursuer1 = generate_enemy(5, Position(17, 6), name='mut', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)])
-		pursuer2 = generate_enemy(6, Position(18, 6), name='mut', weapon='Repeater', classType='sniper', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)])
+		pursuer1 = generate_enemy(5, Position(17, 6), name='mut', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)], weapon='Sword')
+		pursuer2 = generate_enemy(6, Position(18, 6), name='mut', weapon='Repeater', classType='sniper', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)], weapon='Sword')
 
 		pursuerIds = [pursuer1.id, pursuer2.id]
 
@@ -340,9 +341,9 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(9),
 			enemies=[
-				generate_enemy(4, Position(15, 16), name='mut'),
-				generate_enemy(5, Position(16, 13), name='mut'),
-				generate_enemy(4, Position(17, 13), name='mut'),
+				generate_enemy(4, Position(15, 16), name='mut', weapon='Sword'),
+				generate_enemy(5, Position(16, 13), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(17, 13), name='mut', weapon='Sword'),
 				pursuer1,
 				pursuer2,
 				generate_enemy(7, Position(17, 9), name='mut', weapon='Slngsht', classType='sniper'),
@@ -999,7 +1000,7 @@ class ActOneLevels:
 		return level
 
 	def _build_level5():
-		from Shared import get_npc, get_bub
+		from Shared import get_npc
 		from MapData import get_map
 		npc = get_npc()
 
@@ -1024,8 +1025,8 @@ class ActOneLevels:
 		level = Level(
 			map=get_map(5),
 			enemies=[
-				generate_enemy(3, Position(1, 6), name='mut'),
-				generate_enemy(4, Position(5, 5), name='mut'),
+				generate_enemy(3, Position(1, 6), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(5, 5), name='mut', weapon='Sword'),
 				generate_enemy(5, Position(5, 7), name='mut', weapon='Slngsht'),
 				generate_enemy(4, Position(4, 6), name='mut', ai='path', path=[Position(8, 1)]),
 				generate_enemy(3, Position(4, 15), name='mut', ai='path', path=[Position(11, 15), Position(14, 2)]),
@@ -1192,7 +1193,6 @@ class GameState:
         self.lastPos = Position()
 
     def save_game(self):
-        # Save the current game state to persistent storage.
         saveData = get_save_data()
 
         saveData.delItem("gameState-bank")
@@ -1736,6 +1736,8 @@ class GameState:
 
         def check_house_condition():
             house = self.cat_is_on_house()
+            if not selectedCat:
+                return False
             if selectedCat and selectedCat.exhausted:
                 return False
             if not house:
@@ -1797,16 +1799,9 @@ class GameState:
         def visit_house():
             house = self.cat_is_on_house()
             selCat = self.get_selected_cat()
-            if not house.can_visit():
-                for dialog in house.preVisitedDialogs:
-                    self.add_dialog(dialog)
-            elif not house.visited:
-                house.visit()
-                for dialog in house.dialogs:
-                    self.add_dialog(dialog)
-            else:
-                for dialog in house.postVisitDialog:
-                    self.add_dialog(dialog)
+            houseDialogs = house.get_dialogs()
+            for dialog in houseDialogs:
+                self.add_dialog(dialog)
             selCat.set_exhausted(True)
             selCat.set_moved(True)
             exit_menu()
@@ -1869,7 +1864,7 @@ class GameState:
 
         def can_press():
             cat = self.get_selected_cat()
-            if not cat:
+            if not cat or cat.exhausted:
                 return False
             for button in self.level.buttons:
                 if button.position == cat.position and button.can_press():
@@ -1890,6 +1885,7 @@ class GameState:
                         currentlyTalking=cat.name,
                         lines=["*pressed the", "button*"],
                     ))
+                    selectedCat.set_exhausted(True)
                     exit_menu()
                     break
 
@@ -2023,7 +2019,6 @@ from sys import path as syspath
 from MapData import button_sprite_sheet, cat_head_sprite_sheet, cat_sprite_sheet, enemy_sprite_sheet, tileEncumberence, canWalkOn
 import thumbox
 Sprite = thumbox.Thumby().Sprite
-import gc
 
 syspath.insert(0, '/Games/CatsEmblem')
 
@@ -2099,7 +2094,7 @@ class GrowthRates:
             max_hp: int = 60,
             speed: int = 60,
             luck: int = 30,
-            range: int = 20
+            range: int = 10
         ):
         self.attack = attack
         self.defense = defense
@@ -2373,7 +2368,7 @@ class Cat:
         self.next_level_exp += 20
 
         RN = random.randint(1, 100)
-        CF = random.randint(20, 80)
+        CF = random.randint(30, 70)
         luck = getattr(self.stats, 'luck', 0)
 
         if not self.enemy and addDialog:
@@ -2468,13 +2463,25 @@ class House:
     def can_visit(self):
         if self.destroyed:
             return False
-        if self.preVisitedDialogs and not self.visited:
+        if self.preVisitedDialogs and not self.visited and not self.visitCondition():
             return True
-        if self.visitCondition and not self.visited:
-            return self.visitCondition()
+        if not self.visited and self.visitCondition():
+            return True
         if self.visited and self.postVisitDialog:
             return True
         return self.destroyed
+
+    def get_dialogs(self):
+        if self.destroyed:
+            print("House is destroyed, no dialogs available.")
+            return []
+        if self.preVisitedDialogs and not self.visited and not self.visitCondition():
+            return self.preVisitedDialogs
+        if not self.visited and self.visitCondition():
+            return self.dialogs
+        if self.visited and self.postVisitDialog:
+            return self.postVisitDialog
+        return []
 
     def destroy(self):
         self.destroyed = True
@@ -2628,69 +2635,61 @@ class Level:
     def find_valid_positions(self, cat: Cat, range: int, party: list[Cat]):
         map_width = len(self.map[0])
         map_height = len(self.map)
+        cx = cat.position.x
+        cy = cat.position.y
 
-        def is_walkable(position):
-            if not (0 <= position.x < map_width and 0 <= position.y < map_height):
+        def is_walkable(x, y):
+            if not (0 <= x < map_width and 0 <= y < map_height):
                 return False
-            tile = self.map[position.y][position.x]
-            return tile in canWalkOn and canWalkOn[tile]
+            return canWalkOn.get(self.map[y][x], False)
 
-        def get_occupying_unit(position):
-            for unit in party + self.enemies:
-                if unit.id != cat.id and unit.position == position:
+        def get_occupying_unit(x, y):
+            for unit in party:
+                if unit.id != cat.id and unit.position.x == x and unit.position.y == y:
+                    return unit
+            for unit in self.enemies:
+                if unit.id != cat.id and unit.position.x == x and unit.position.y == y:
                     return unit
             return None
 
-        def is_barrier(position):
+        def is_barrier(x, y):
             for blockade in self.blockades:
-                if position in blockade.positions and not blockade.cleared:
-                    return True
+                if not blockade.cleared:
+                    for pos in blockade.positions:
+                        if pos.x == x and pos.y == y:
+                            return True
             return False
 
-        visited = set()
+        # Single dict replaces both visited set and string-keyed position_weight dict.
+        # Tracks best remaining_range seen per (x, y); skip re-processing if not improved.
+        position_weight = {}
         valid_positions = set()
-        position_weight = dict()
-        queue = [(cat.position, range)]
+        queue = [(cx, cy, range)]  # used as a stack — pop() is O(1) vs pop(0) O(n)
 
         while queue:
-            current_pos, remaining_range = queue.pop(0)
+            x, y, rem = queue.pop()
 
-            if remaining_range < 0 or (current_pos in visited and position_weight.get(f"{current_pos.x},{current_pos.y}", -1) >= remaining_range):
-                continue
-
-            visited.add(current_pos)
-            position_weight[f"{current_pos.x},{current_pos.y}"] = remaining_range
-
-            if not is_walkable(current_pos):
-                continue
-
-            occupying_unit = get_occupying_unit(current_pos)
+            key = (x, y)
+            position_weight[key] = rem
+            occupying_unit = get_occupying_unit(x, y)
             occupied_by_enemy = occupying_unit is not None and occupying_unit.enemy != cat.enemy
             occupied_by_ally = occupying_unit is not None and occupying_unit.enemy == cat.enemy
 
-            if is_barrier(current_pos):
+            if not is_walkable(x, y):
                 continue
-
-            # Allies can be passed through but cannot be a final standing tile.
-            if occupied_by_enemy:
+            elif is_barrier(x, y):
                 continue
-            if not occupied_by_ally or (occupied_by_ally and not cat.enemy) or current_pos == cat.position:
-                valid_positions.add(current_pos)
+            elif occupied_by_enemy:
+                continue
+            elif not occupied_by_ally or (occupied_by_ally and not cat.enemy) or (x == cx and y == cy):
+                valid_positions.add(Position(x, y))
 
-            if remaining_range > 0:
-                neighbors = []
-                if current_pos.x >= cat.position.x:
-                    neighbors.append(Position(current_pos.x + 1, current_pos.y))
-                if current_pos.x <= cat.position.x:
-                    neighbors.append(Position(current_pos.x - 1, current_pos.y))
-                if current_pos.y >= cat.position.y:
-                    neighbors.append(Position(current_pos.x, current_pos.y + 1))
-                if current_pos.y <= cat.position.y:
-                    neighbors.append(Position(current_pos.x, current_pos.y - 1))
-                for neighbor in neighbors:
-                    if is_walkable(neighbor):
-                        encumbrance = tileEncumberence.get(self.map[neighbor.y][neighbor.x], 1)
-                        queue.append((neighbor, remaining_range - encumbrance))
+            if rem > 0:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x +dx, y + dy
+                    nkey = (nx, ny)
+                    if nkey not in position_weight or rem - 1 > position_weight[nkey]:
+                        queue.append((nx, ny, rem - 1))
 
         return list(valid_positions)
 
@@ -2707,8 +2706,8 @@ def _build_cat_unit():
         sprite=cat_sprite,
         position=Position(2, 4),
         name='cat',
-        stats=Stats(defense=5, attack=4, speed=4, luck=3, range=4),
-        growthRates=GrowthRates(attack=45, defense=45, luck=50, range=15),
+        stats=Stats(max_hp=10, defense=4, attack=4, speed=3, luck=3, range=4),
+        growthRates=GrowthRates(attack=45, defense=45, luck=50, range=20),
         items=[itemDict['Stick'], itemDict['Tuna']],
     )
 
@@ -2717,8 +2716,8 @@ def _build_tac_unit():
         sprite=cat_sprite,
         position=Position(5, 13),
         name='tac',
-        stats=Stats(defense=3, attack=5, speed=5, luck=3, range=4),
-        growthRates=GrowthRates(defense=50, speed=70, luck=25, range=25),
+        stats=Stats(defense=3, attack=4, speed=5, luck=3, range=4),
+        growthRates=GrowthRates(defense=50, speed=70, luck=25, range=15),
         items=[itemDict['Slngsht']]
     )
 
@@ -2727,7 +2726,7 @@ def _build_mew_unit():
         sprite=cat_sprite,
         name='mew',
         position=Position(3, 1),
-        stats=Stats(attack=4, max_hp=10, speed=4, range=4, defense=3),
+        stats=Stats(attack=4, max_hp=10, range=4, defense=3),
         items=[itemDict['Stick']],
         weaponExp=WeaponExp(repeater=10, sword=20),
         growthRates=GrowthRates(attack=50, speed=65, range=15)
@@ -2738,11 +2737,11 @@ def _build_bub_unit():
         sprite=cat_sprite,
         name='bub',
         position=Position(8, 14),
-        stats=Stats(attack=4, defense=4, speed=4, luck=4, range=4),
+        stats=Stats(attack=4, defense=3, speed=4, luck=4, range=4),
         enemy=False,
         classType='sniper',
         items=[itemDict['Repeater'], itemDict['Tuna']],
-        growthRates=GrowthRates(attack=60, defense=30, max_hp=55, speed=45, luck=40, range=30),
+        growthRates=GrowthRates(attack=60, defense=30, max_hp=55, speed=45, luck=40, range=15),
         weaponExp=WeaponExp(bow=10, longbow=50, repeater=35, sword=10)
     ).add_exp(100, None)
 
@@ -2826,7 +2825,6 @@ def fetch_level(level_number):
     from Callbacks import CALLBACKS
     if level_number < 6:
         sys.modules.pop('ActTwo', None)
-        gc.collect()
         from ActOne import ActOneLevels, set_game_state_callbacks
         set_game_state_callbacks(*CALLBACKS)
         levels = ActOneLevels
@@ -2844,7 +2842,6 @@ def fetch_level(level_number):
         return None
     else:
         sys.modules.pop('ActOne', None)
-        gc.collect()
         from ActTwo import ActTwoLevels, set_game_state_callbacks
         set_game_state_callbacks(*CALLBACKS)
         levels = ActTwoLevels
@@ -4050,6 +4047,7 @@ thumby.display.setFPS(10)
 render_loading_screen("Loading")
 
 from MapData import get_tile_data, canWalkOn, tileEvation
+
 checkClearMem("MapData imported")
 from Items import weaponAdvantages
 render_loading_screen("Loading.")
@@ -4294,7 +4292,7 @@ def calculate_damage(attacker: Cat, defender: Cat):
 
 	crit_chance = (attacker.stats.luck * (1.5 if hasClassAdvantage or hasWeaponAdvantage else 1) * (2 if attackerLowHP else 1) + assist )
 	randInt = random.randint(1, 100)
-	if randInt < crit_chance:
+	if randInt < crit_chance or attacker.stats.luck == randInt:
 		bonus_damage += base_damage
 
 	destroyed = attackerWeapon.use_weapon()
@@ -4468,13 +4466,14 @@ def get_attack_tile(cat: Cat):
 				potential_targets.append((pos, p, diff))
 				break
 
-	for house in gameState.level.houses:
-		if house.destroyed or abs(house.position.x - cat.position.x) + abs(house.position.y - cat.position.y) > cat.stats.range:
-			continue
-		for pos in domain:
-			if pos.x == house.position.x and pos.y == house.position.y:
-				potential_targets.append((pos, None, 0))
-				break
+	if not potential_targets:
+		for house in gameState.level.houses:
+			if house.destroyed or abs(house.position.x - cat.position.x) + abs(house.position.y - cat.position.y) > cat.stats.range:
+				continue
+			for pos in domain:
+				if pos.x == house.position.x and pos.y == house.position.y:
+					potential_targets.append((pos, None, 0))
+					break
 
 	if not potential_targets and cat.aiType == "path" and cat.aiPath and not cat.moved:
 		nearest_path_point = {"position": None, "distance": float('inf')}
@@ -4642,7 +4641,7 @@ async def main():
 				if gameState.has_saved_game():
 					gameState.load_game()
 					gameState.state = 'map'
-	
+		
 			menu_options = [
 				Option(
 					label= "New Game",
@@ -4662,7 +4661,7 @@ async def main():
 					title=[lambda: "Main Menu"],
 					leave_action=lambda: setattr(gameState, 'state', 'title')
 				)
-		
+			
 				gameState.enter_menu(title_menu)
 
 		elif gameState.state == 'map':
@@ -4718,10 +4717,10 @@ async def main():
 		elif gameState.state == 'menu':
 			if gameState.menu:
 				thumby.display.fill(thumby.display.WHITE)
-			
+				
 				if gameState.menu.title and gameState.menu.menu_index < len(gameState.menu.title):
 					thumby.display.drawText(gameState.menu.title[gameState.menu.menu_index](), 2, 0, thumby.display.DARKGRAY)
-	
+		
 				visible_options, offset = gameState.menu.get_visible_options()
 				for i, menu_option in enumerate(visible_options):
 					selected = thumby.display.BLACK if i + offset == gameState.menu.option_index else thumby.display.DARKGRAY
@@ -4737,20 +4736,20 @@ async def main():
 					gameState.menu.option_index -= 1
 				elif thumby.buttonD.justPressed() and gameState.menu.option_index < len(visible_options) - 1:
 					gameState.menu.option_index += 1
-	
+		
 				elif thumby.buttonL.justPressed() and gameState.menu.menu_index > 0:
 					gameState.menu.menu_index -= 1
 					gameState.menu.option_index = 0
-	
+		
 				elif thumby.buttonR.justPressed() and gameState.menu.menu_index < len(gameState.menu.options) - 1:
 					gameState.menu.menu_index += 1
 					gameState.menu.option_index = 0
-	
+		
 				elif thumby.buttonA.justPressed():
 					valid_options = gameState.menu.get_options()
 					if valid_options:
 						valid_options[gameState.menu.option_index].action()
-	
+		
 				elif thumby.buttonB.justPressed():
 					if gameState.menu.leave_action:
 						gameState.menu.leave_action()
@@ -4784,7 +4783,7 @@ async def main():
 
 				if thumby.buttonA.justPressed():
 					selected_enemy = enemies_in_range[option]
-				
+					
 					battle(selected_cat, selected_enemy)
 					selected_cat.set_exhausted(True)
 					gameState.cancel_cat_select()
@@ -4794,7 +4793,7 @@ async def main():
 					if selected_cat: gameState.update_selector_position(selected_cat.position.x, selected_cat.position.y)
 					gameState.open_unit_menu()
 					option = 0
-	
+		
 		elif gameState.state == 'enemy-turn':
 			if frame % 10 == 1:
 				if activeEnemy:
@@ -4857,7 +4856,6 @@ async def main():
 
 		thumby.display.update()
 		await asyncio.sleep(0)
-
 
 asyncio.run(main())
 

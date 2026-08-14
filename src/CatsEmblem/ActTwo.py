@@ -83,15 +83,16 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(6),
 			enemies=[
-				generate_enemy(3, Position(6, 8), name='mut'),
-				generate_enemy(4, Position(8, 7), name='mut'),
-				generate_enemy(3, Position(7, 13), name='mut'),
-				generate_enemy(4, Position(7, 3), name='mut'),
-				generate_enemy(5, Position(13, 13), name='mut', weapon='Slngsht'),
+				generate_enemy(3, Position(6, 8), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(8, 7), name='mut', weapon='Sword'),
+				generate_enemy(3, Position(7, 13), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(7, 3), name='mut', weapon='Sword'),
+				generate_enemy(5, Position(13, 13), name='mut', weapon='Sword'),
 				generate_enemy(5, Position(11, 8), name='mut', weapon='LongBow', classType='sniper'),
 				generate_enemy(6, Position(15, 8), name='mut', weapon='Mace', classType='warrior'),
 				generate_enemy(5, Position(17, 8), name='mut', weapon='EarthTm', classType='wizard'),
 				generate_enemy(7, Position(16, 3), name='mut', weapon='LghtngTm', classType='wizard', ai='stand'),
+				bub
 			],
 			number=6,
 			seizePosition=Position(16, 3),
@@ -148,8 +149,8 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(7),
 			enemies=[
-				generate_enemy(4, Position(9, 7), name='mut'),
-				generate_enemy(3, Position(10, 8), name='mut'),
+				generate_enemy(4, Position(9, 7), name='mut', weapon='Sword'),
+				generate_enemy(3, Position(10, 8), name='mut', weapon='Sword'),
 				generate_enemy(4, Position(3, 4), name='mut', ai='path', path=[Position(0, 8), Position(2, 11)]),
 				generate_enemy(5, Position(4, 4), name='mut', ai='path', path=[Position(1, 8), Position(3, 11)]),
 				generate_enemy(4, Position(6, 11), name='mut', weapon='Slngsht'),
@@ -213,7 +214,7 @@ class ActTwoLevels:
 						lines=["Received","a Rabbit's Foot"],
 						lambda_after=lambda: give_item(Position(5,7), itemDict['RabFoot'])
 					)],
-					postVisitedDialog=Dialog(
+					postVisitDialog=Dialog(
 						lines=["I hope","you use it","well"],
 						left_cats=[get_cat_at_position(Position(5, 7))],
 						right_cats=[npc],
@@ -248,9 +249,9 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(8),
 			enemies=[
-				generate_enemy(6, Position(8, 11), name ='jr'),
-				generate_enemy(7, Position(6, 5), name='mini'),
-				generate_enemy(7, Position(5, 5), name='l'),
+				generate_enemy(6, Position(8, 11), name ='jr', weapon='Sword'),
+				generate_enemy(7, Position(6, 5), name='mini', weapon='Mace'),
+				generate_enemy(7, Position(5, 5), name='l', weapon='Spear'),
 				generate_enemy(8, Position(3, 5), name='beef', classType='warrior', weapon='Spear'),
 				generate_enemy(8, Position(4, 5), name='wago', classType='sniper', weapon='Repeater'),
 				generate_enemy(9, Position(4, 2), ai='stand', name='xl', weapon='Axe', classType='warrior'),
@@ -308,8 +309,8 @@ class ActTwoLevels:
 		from MapData import get_map
 		npc = get_npc()
 
-		pursuer1 = generate_enemy(5, Position(17, 6), name='mut', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)])
-		pursuer2 = generate_enemy(6, Position(18, 6), name='mut', weapon='Repeater', classType='sniper', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)])
+		pursuer1 = generate_enemy(5, Position(17, 6), name='mut', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)], weapon='Sword')
+		pursuer2 = generate_enemy(6, Position(18, 6), name='mut', weapon='Repeater', classType='sniper', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)], weapon='Sword')
 
 		pursuerIds = [pursuer1.id, pursuer2.id]
 
@@ -325,9 +326,9 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(9),
 			enemies=[
-				generate_enemy(4, Position(15, 16), name='mut'),
-				generate_enemy(5, Position(16, 13), name='mut'),
-				generate_enemy(4, Position(17, 13), name='mut'),
+				generate_enemy(4, Position(15, 16), name='mut', weapon='Sword'),
+				generate_enemy(5, Position(16, 13), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(17, 13), name='mut', weapon='Sword'),
 				pursuer1,
 				pursuer2,
 				generate_enemy(7, Position(17, 9), name='mut', weapon='Slngsht', classType='sniper'),

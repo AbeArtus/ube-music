@@ -2,7 +2,6 @@ from sys import path as syspath
 from MapData import button_sprite_sheet, cat_head_sprite_sheet, cat_sprite_sheet, enemy_sprite_sheet, tileEncumberence, canWalkOn
 import thumbox
 Sprite = thumbox.Thumby().Sprite
-import gc
 
 syspath.insert(0, '/Games/CatsEmblem')
 
@@ -78,7 +77,7 @@ class GrowthRates:
             max_hp: int = 60,
             speed: int = 60,
             luck: int = 30,
-            range: int = 20
+            range: int = 10
         ):
         self.attack = attack
         self.defense = defense
@@ -352,7 +351,7 @@ class Cat:
         self.next_level_exp += 20
 
         RN = random.randint(1, 100)
-        CF = random.randint(20, 80)
+        CF = random.randint(30, 70)
         luck = getattr(self.stats, 'luck', 0)
 
         if not self.enemy and addDialog:
@@ -447,13 +446,25 @@ class House:
     def can_visit(self):
         if self.destroyed:
             return False
-        if self.preVisitedDialogs and not self.visited:
+        if self.preVisitedDialogs and not self.visited and not self.visitCondition():
             return True
-        if self.visitCondition and not self.visited:
-            return self.visitCondition()
+        if not self.visited and self.visitCondition():
+            return True
         if self.visited and self.postVisitDialog:
             return True
         return self.destroyed
+
+    def get_dialogs(self):
+        if self.destroyed:
+            print("House is destroyed, no dialogs available.")
+            return []
+        if self.preVisitedDialogs and not self.visited and not self.visitCondition():
+            return self.preVisitedDialogs
+        if not self.visited and self.visitCondition():
+            return self.dialogs
+        if self.visited and self.postVisitDialog:
+            return self.postVisitDialog
+        return []
 
     def destroy(self):
         self.destroyed = True
@@ -607,69 +618,61 @@ class Level:
     def find_valid_positions(self, cat: Cat, range: int, party: list[Cat]):
         map_width = len(self.map[0])
         map_height = len(self.map)
+        cx = cat.position.x
+        cy = cat.position.y
 
-        def is_walkable(position):
-            if not (0 <= position.x < map_width and 0 <= position.y < map_height):
+        def is_walkable(x, y):
+            if not (0 <= x < map_width and 0 <= y < map_height):
                 return False
-            tile = self.map[position.y][position.x]
-            return tile in canWalkOn and canWalkOn[tile]
+            return canWalkOn.get(self.map[y][x], False)
 
-        def get_occupying_unit(position):
-            for unit in party + self.enemies:
-                if unit.id != cat.id and unit.position == position:
+        def get_occupying_unit(x, y):
+            for unit in party:
+                if unit.id != cat.id and unit.position.x == x and unit.position.y == y:
+                    return unit
+            for unit in self.enemies:
+                if unit.id != cat.id and unit.position.x == x and unit.position.y == y:
                     return unit
             return None
 
-        def is_barrier(position):
+        def is_barrier(x, y):
             for blockade in self.blockades:
-                if position in blockade.positions and not blockade.cleared:
-                    return True
+                if not blockade.cleared:
+                    for pos in blockade.positions:
+                        if pos.x == x and pos.y == y:
+                            return True
             return False
 
-        visited = set()
+        # Single dict replaces both visited set and string-keyed position_weight dict.
+        # Tracks best remaining_range seen per (x, y); skip re-processing if not improved.
+        position_weight = {}
         valid_positions = set()
-        position_weight = dict()
-        queue = [(cat.position, range)]
+        queue = [(cx, cy, range)]  # used as a stack — pop() is O(1) vs pop(0) O(n)
 
         while queue:
-            current_pos, remaining_range = queue.pop(0)
+            x, y, rem = queue.pop()
 
-            if remaining_range < 0 or (current_pos in visited and position_weight.get(f"{current_pos.x},{current_pos.y}", -1) >= remaining_range):
-                continue
-
-            visited.add(current_pos)
-            position_weight[f"{current_pos.x},{current_pos.y}"] = remaining_range
-
-            if not is_walkable(current_pos):
-                continue
-
-            occupying_unit = get_occupying_unit(current_pos)
+            key = (x, y)
+            position_weight[key] = rem
+            occupying_unit = get_occupying_unit(x, y)
             occupied_by_enemy = occupying_unit is not None and occupying_unit.enemy != cat.enemy
             occupied_by_ally = occupying_unit is not None and occupying_unit.enemy == cat.enemy
 
-            if is_barrier(current_pos):
+            if not is_walkable(x, y):
                 continue
-
-            # Allies can be passed through but cannot be a final standing tile.
-            if occupied_by_enemy:
+            elif is_barrier(x, y):
                 continue
-            if not occupied_by_ally or (occupied_by_ally and not cat.enemy) or current_pos == cat.position:
-                valid_positions.add(current_pos)
+            elif occupied_by_enemy:
+                continue
+            elif not occupied_by_ally or (occupied_by_ally and not cat.enemy) or (x == cx and y == cy):
+                valid_positions.add(Position(x, y))
 
-            if remaining_range > 0:
-                neighbors = []
-                if current_pos.x >= cat.position.x:
-                    neighbors.append(Position(current_pos.x + 1, current_pos.y))
-                if current_pos.x <= cat.position.x:
-                    neighbors.append(Position(current_pos.x - 1, current_pos.y))
-                if current_pos.y >= cat.position.y:
-                    neighbors.append(Position(current_pos.x, current_pos.y + 1))
-                if current_pos.y <= cat.position.y:
-                    neighbors.append(Position(current_pos.x, current_pos.y - 1))
-                for neighbor in neighbors:
-                    if is_walkable(neighbor):
-                        encumbrance = tileEncumberence.get(self.map[neighbor.y][neighbor.x], 1)
-                        queue.append((neighbor, remaining_range - encumbrance))
+            if rem > 0:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x +dx, y + dy
+                    nkey = (nx, ny)
+                    if nkey not in position_weight or rem - 1 > position_weight[nkey]:
+                        queue.append((nx, ny, rem - 1))
 
         return list(valid_positions)
 
@@ -686,8 +689,8 @@ def _build_cat_unit():
         sprite=cat_sprite,
         position=Position(2, 4),
         name='cat',
-        stats=Stats(defense=5, attack=4, speed=4, luck=3, range=4),
-        growthRates=GrowthRates(attack=45, defense=45, luck=50, range=15),
+        stats=Stats(max_hp=10, defense=4, attack=4, speed=3, luck=3, range=4),
+        growthRates=GrowthRates(attack=45, defense=45, luck=50, range=20),
         items=[itemDict['Stick'], itemDict['Tuna']],
     )
 
@@ -696,8 +699,8 @@ def _build_tac_unit():
         sprite=cat_sprite,
         position=Position(5, 13),
         name='tac',
-        stats=Stats(defense=3, attack=5, speed=5, luck=3, range=4),
-        growthRates=GrowthRates(defense=50, speed=70, luck=25, range=25),
+        stats=Stats(defense=3, attack=4, speed=5, luck=3, range=4),
+        growthRates=GrowthRates(defense=50, speed=70, luck=25, range=15),
         items=[itemDict['Slngsht']]
     )
 
@@ -706,7 +709,7 @@ def _build_mew_unit():
         sprite=cat_sprite,
         name='mew',
         position=Position(3, 1),
-        stats=Stats(attack=4, max_hp=10, speed=4, range=4, defense=3),
+        stats=Stats(attack=4, max_hp=10, range=4, defense=3),
         items=[itemDict['Stick']],
         weaponExp=WeaponExp(repeater=10, sword=20),
         growthRates=GrowthRates(attack=50, speed=65, range=15)
@@ -717,11 +720,11 @@ def _build_bub_unit():
         sprite=cat_sprite,
         name='bub',
         position=Position(8, 14),
-        stats=Stats(attack=4, defense=4, speed=4, luck=4, range=4),
+        stats=Stats(attack=4, defense=3, speed=4, luck=4, range=4),
         enemy=False,
         classType='sniper',
         items=[itemDict['Repeater'], itemDict['Tuna']],
-        growthRates=GrowthRates(attack=60, defense=30, max_hp=55, speed=45, luck=40, range=30),
+        growthRates=GrowthRates(attack=60, defense=30, max_hp=55, speed=45, luck=40, range=15),
         weaponExp=WeaponExp(bow=10, longbow=50, repeater=35, sword=10)
     ).add_exp(100, None)
 
@@ -805,7 +808,6 @@ def fetch_level(level_number):
     from Callbacks import CALLBACKS
     if level_number < 6:
         sys.modules.pop('ActTwo', None)
-        gc.collect()
         from ActOne import ActOneLevels, set_game_state_callbacks
         set_game_state_callbacks(*CALLBACKS)
         levels = ActOneLevels
@@ -823,7 +825,6 @@ def fetch_level(level_number):
         return None
     else:
         sys.modules.pop('ActOne', None)
-        gc.collect()
         from ActTwo import ActTwoLevels, set_game_state_callbacks
         set_game_state_callbacks(*CALLBACKS)
         levels = ActTwoLevels
