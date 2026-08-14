@@ -229,17 +229,17 @@ class ActTwoLevels:
 		from Shared import get_npc, generate_enemy, Position, House, Dialog, Level
 		from MapData import get_map
 
-		def house_condition():
+		def house_condition(position: Position):
 			selCat = get_selected_cat()
-			if not can_give_item():
+			if not can_give_item(position):
 				return False
 			if selCat is None or selCat.classType != 'wizard':
 				return False
 			return True
 
-		def house_condition2():
+		def house_condition2(position: Position):
 			selCat = get_selected_cat()
-			if not can_give_item():
+			if not can_give_item(position):
 				return False
 			if selCat is None or selCat.classType != 'warrior':
 				return False
@@ -280,7 +280,7 @@ class ActTwoLevels:
 						currentlyTalking='npc',
 						lambda_after=lambda: give_item(Position(16, 10), itemDict['NecTome'])
 					)],
-					visitCondition=house_condition
+					visitCondition=house_condition(Position(16, 10))
 				),
 				House(
 					position=Position(17, 10),
@@ -298,7 +298,7 @@ class ActTwoLevels:
 						lines=["Received","a Axe"],
 						lambda_after=lambda: give_item(Position(17, 10), itemDict['Axe'])
 					)],
-					visitCondition=house_condition2
+					visitCondition=house_condition2(Position(17, 10))
 				)
 			]
 		)
