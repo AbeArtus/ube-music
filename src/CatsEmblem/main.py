@@ -599,7 +599,7 @@ async def main():
 
 			if dialog.timeout:
 				thumby.display.update()
-				sleep(dialog.timeout)
+				await asyncio.sleep(dialog.timeout)
 				gameState.pop_dialog()
 			else:
 				if thumby.buttonA.justPressed():
@@ -648,9 +648,14 @@ async def main():
 
 			if thumby.buttonA.justPressed():
 				cat_here = None
+				enemy_here = None
 				for c in gameState.party:
 					if c.position == gameState.level.selectorPosition:
 						cat_here = c
+						break
+				for e in gameState.level.enemies:
+					if e.position == gameState.level.selectorPosition:
+						enemy_here = e
 						break
 				if cat_here and cat_here.id != gameState.selectedCatId:
 					if cat_here.exhausted:
@@ -666,15 +671,13 @@ async def main():
 						cat.set_position(Position(gameState.level.selectorPosition.x, gameState.level.selectorPosition.y))
 						cat.moved = True
 						gameState.open_unit_menu()
+				elif enemy_here:
+					if enemy_here.position == gameState.level.selectorPosition:
+						gameState.selectedCatId = enemy_here.id
+						gameState.open_stats(enemy_here)
 				else:
-					# Check if an enemy is selected
-					for enemy in gameState.level.enemies:
-						if enemy.position == gameState.level.selectorPosition:
-							gameState.selectedCatId = enemy.id
-							gameState.open_stats(enemy)
-							break
-						else:
-							gameState.open_unit_menu()
+					gameState.open_unit_menu()
+
 			if thumby.buttonB.justPressed():
 				if gameState.selectedCatId is not None:
 					gameState.cancel_cat_select()

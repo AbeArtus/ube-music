@@ -149,7 +149,7 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(7),
 			enemies=[
-				generate_enemy(4, Position(9, 7), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(9, 9), name='mut', weapon='Sword'),
 				generate_enemy(3, Position(10, 8), name='mut', weapon='Sword'),
 				generate_enemy(4, Position(3, 4), name='mut', ai='path', path=[Position(0, 8), Position(2, 11)]),
 				generate_enemy(5, Position(4, 4), name='mut', ai='path', path=[Position(1, 8), Position(3, 11)]),
@@ -310,7 +310,7 @@ class ActTwoLevels:
 		npc = get_npc()
 
 		pursuer1 = generate_enemy(5, Position(17, 6), name='mut', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)], weapon='Sword')
-		pursuer2 = generate_enemy(6, Position(18, 6), name='mut', weapon='Repeater', classType='sniper', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)], weapon='Sword')
+		pursuer2 = generate_enemy(6, Position(18, 6), name='mut', weapon='Repeater', classType='sniper', ai='path', path=[Position(16, 3), Position(4, 4), Position(2, 11)])
 
 		pursuerIds = [pursuer1.id, pursuer2.id]
 
