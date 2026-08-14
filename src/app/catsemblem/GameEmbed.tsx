@@ -132,6 +132,8 @@ export default function GameEmbed() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const persistCleanupRef = useRef<(() => void) | null>(null);
+  const draggingRef = useRef(false);
+  const activeKeyRef = useRef<KeyName | null>(null);
   const [pressed, setPressed] = useState<Record<KeyName, boolean>>(
     EMPTY_PRESSED
   );
@@ -238,19 +240,52 @@ export default function GameEmbed() {
     dispatchKey("keyup", name);
   }
 
+  // Switches which button is "active" as the pointer moves, so a single
+  // press-and-drag gesture can slide across the d-pad/A/B buttons and have
+  // each one register in turn (handy for touch/mobile).
+  function activate(name: KeyName | null) {
+    if (activeKeyRef.current === name) return;
+    if (activeKeyRef.current) release(activeKeyRef.current);
+    activeKeyRef.current = name;
+    if (name) press(name);
+  }
+
+  useEffect(() => {
+    function keyAt(x: number, y: number): KeyName | null {
+      const el = document.elementFromPoint(x, y) as HTMLElement | null;
+      return (el?.closest<HTMLElement>("[data-key]")?.dataset
+        .key as KeyName | undefined) ?? null;
+    }
+    function handlePointerMove(e: PointerEvent) {
+      if (!draggingRef.current) return;
+      activate(keyAt(e.clientX, e.clientY));
+    }
+    function handlePointerUp() {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      activate(null);
+    }
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+    // activate() only touches refs and the (stable) setPressed setter, so
+    // it doesn't need to be in the dependency array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function buttonHandlers(name: KeyName) {
     return {
+      "data-key": name,
       onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
         e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        press(name);
+        draggingRef.current = true;
+        activate(name);
       },
-      onPointerUp: (e: ReactPointerEvent<HTMLButtonElement>) => {
-        e.preventDefault();
-        release(name);
-      },
-      onPointerCancel: () => release(name),
-      onLostPointerCapture: () => release(name),
       onContextMenu: (e: ReactPointerEvent<HTMLButtonElement>) =>
         e.preventDefault(),
     };
@@ -258,7 +293,9 @@ export default function GameEmbed() {
 
   return (
     <div className="catsemblem-wrapper">
-      <div ref={containerRef} className="catsemblem-embed" />
+      <div className="catsemblem-embed-wrapper">
+        <div ref={containerRef} className="catsemblem-embed" />
+      </div>
       <div className="catsemblem-controls">
         <div className="catsemblem-dpad">
           <button

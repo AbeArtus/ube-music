@@ -27,9 +27,6 @@
   height: 80px;
   overflow: hidden;
   flex-shrink: 0;
-  margin-top: 16px;
-  border: 1px solid #555;
-  border-radius: 4px;
   /* add a shimmer effect to the canvas while the game is loading  make the movement linear though*/
   background: linear-gradient(90deg, #111 25%, #202020 50%, #111 75%);
   background-size: 200% 100%;
@@ -43,6 +40,16 @@
   100% {
     background-position: -200% 0;
   }
+}
+
+.catsemblem-embed-wrapper {
+  display: flex;
+  align-items: center;
+  background: #1a1a1a;
+  width: 146px;
+  height: 116px;
+  border: 1px solid #555;
+  border-radius: 4px;
 }
 
 .catsemblem-embed canvas {
@@ -60,8 +67,8 @@
   justify-content: center;
   user-select: none;
   gap: 16px;
-  margin-top: 32px;
-  margin-bottom: 48px;
+  margin-top: 24px;
+  margin-bottom: 32px;
 }
 
 .catsemblem-dpad {
@@ -84,22 +91,18 @@
   justify-content: center;
 }
 
-.dpad-up:active,
 .dpad-up.pressed {
   background: linear-gradient(to top, #333, #1a1a1a);
 }
 
-.dpad-left:active,
 .dpad-left.pressed {
   background: linear-gradient(to left, #333, #1a1a1a);
 }
 
-.dpad-right:active,
 .dpad-right.pressed {
   background: linear-gradient(to right, #333, #1a1a1a);
 }
 
-.dpad-down:active,
 .dpad-down.pressed {
   background: linear-gradient(to bottom, #333, #1a1a1a);
 }
@@ -152,7 +155,7 @@
   height: 32px;
   border-radius: 50%;
   background: #333;
-  border: 2px solid #555;
+  border: 1px solid #555;
   color: #eee;
   font-size: 18px;
   font-weight: bold;
@@ -161,7 +164,6 @@
   justify-content: center;
 }
 
-.ab-btn:active,
 .ab-btn.pressed {
   background: #1a1a1a;
 }
