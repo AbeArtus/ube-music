@@ -87,7 +87,7 @@ class ActTwoLevels:
 				generate_enemy(4, Position(8, 7), name='mut', weapon='Sword'),
 				generate_enemy(3, Position(7, 13), name='mut', weapon='Sword'),
 				generate_enemy(4, Position(7, 3), name='mut', weapon='Sword'),
-				generate_enemy(5, Position(13, 13), name='mut', weapon='Sword'),
+				generate_enemy(5, Position(13, 13), name='mut', weapon='Sword', classType='warrior'),
 				generate_enemy(5, Position(11, 8), name='mut', weapon='LongBow', classType='sniper'),
 				generate_enemy(6, Position(15, 8), name='mut', weapon='Mace', classType='warrior'),
 				generate_enemy(5, Position(17, 8), name='mut', weapon='EarthTm', classType='wizard'),
@@ -152,7 +152,7 @@ class ActTwoLevels:
 				generate_enemy(4, Position(9, 9), name='mut', weapon='Sword'),
 				generate_enemy(3, Position(10, 8), name='mut', weapon='Sword'),
 				generate_enemy(4, Position(3, 4), name='mut', ai='path', path=[Position(0, 8), Position(2, 11)]),
-				generate_enemy(5, Position(4, 4), name='mut', ai='path', path=[Position(1, 8), Position(3, 11)]),
+				generate_enemy(5, Position(4, 4), name='mut', ai='path', path=[Position(1, 8), Position(3, 11)], weapon='Repeater', classType='sniper'),
 				generate_enemy(4, Position(6, 11), name='mut', weapon='Slngsht'),
 				generate_enemy(5, Position(2, 2), name='mut', weapon='LongBow', classType='sniper'),
 				generate_enemy(6, Position(10, 2), name='mut', weapon='Spear', classType='warrior'),
@@ -233,25 +233,25 @@ class ActTwoLevels:
 			selCat = get_selected_cat()
 			if not can_give_item(position):
 				return False
-			if selCat is None or selCat.classType != 'wizard':
-				return False
-			return True
+			if selCat and selCat.classType == 'wizard':
+				return True
+			return False
 
 		def house_condition2(position: Position):
 			selCat = get_selected_cat()
 			if not can_give_item(position):
 				return False
-			if selCat is None or selCat.classType != 'warrior':
-				return False
-			return True
+			if selCat and selCat.classType == 'warrior':
+				return True
+			return False
 
 		npc = get_npc()
 		level = Level(
 			map=get_map(8),
 			enemies=[
-				generate_enemy(6, Position(8, 11), name ='jr', weapon='Sword'),
-				generate_enemy(7, Position(6, 5), name='mini', weapon='Mace'),
-				generate_enemy(7, Position(5, 5), name='l', weapon='Spear'),
+				generate_enemy(6, Position(8, 11), name ='jr', weapon='Sword', classType='warrior'),
+				generate_enemy(7, Position(6, 5), name='mini', weapon='Mace', classType='warrior'),
+				generate_enemy(7, Position(5, 5), name='l', weapon='Spear', classType='warrior'),
 				generate_enemy(8, Position(3, 5), name='beef', classType='warrior', weapon='Spear'),
 				generate_enemy(8, Position(4, 5), name='wago', classType='sniper', weapon='Repeater'),
 				generate_enemy(9, Position(4, 2), ai='stand', name='xl', weapon='Axe', classType='warrior'),
@@ -279,6 +279,8 @@ class ActTwoLevels:
 						right_cats=[get_cat_at_position(Position(16, 10))],
 						currentlyTalking='npc',
 						lambda_after=lambda: give_item(Position(16, 10), itemDict['NecTome'])
+					), Dialog(
+						lines=["Received","a Necromancy","Tome"]
 					)],
 					visitCondition=house_condition(Position(16, 10))
 				),
@@ -326,13 +328,13 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(9),
 			enemies=[
-				generate_enemy(4, Position(15, 16), name='mut', weapon='Sword'),
-				generate_enemy(5, Position(16, 13), name='mut', weapon='Sword'),
-				generate_enemy(4, Position(17, 13), name='mut', weapon='Sword'),
+				generate_enemy(4, Position(15, 16), name='mut', weapon='Sword', classType='warrior'),
+				generate_enemy(5, Position(16, 13), name='mut', weapon='Sword', classType='warrior'),
+				generate_enemy(4, Position(17, 13), name='mut', weapon='Sword', classType='warrior'),
 				pursuer1,
 				pursuer2,
 				generate_enemy(7, Position(17, 9), name='mut', weapon='Slngsht', classType='sniper'),
-				generate_enemy(7, Position(16, 8), name='mut', weapon='Slngsht'),
+				generate_enemy(7, Position(16, 8), name='mut', weapon='Bow', classType='sniper'),
 				generate_enemy(8, Position(18, 2), name='mut', weapon='LghtngTm', classType='wizard'),
 				generate_enemy(8, Position(14, 2), name='mut', weapon='LongBow', classType='sniper'),
 				generate_enemy(8, Position(16, 2), name='mut', weapon='LghtngTm', classType='warrior'),
@@ -357,12 +359,12 @@ class ActTwoLevels:
 				), House(
 					position=Position(2, 1),
 					dialogs=[Dialog(
-						lines=["You will","need this,", "firstly"],
+						lines=["You will","need this.", "Just know,"],
 						left_cats=[get_cat_at_position(Position(2, 1))],
 						right_cats=[npc],
 						currentlyTalking='npc'
 					), Dialog(
-						lines=["Power,","is it","given"],
+						lines=["power,","is it","given?"],
 						right_cats=[get_cat_at_position(Position(2, 1))],
 						left_cats=[npc],
 						currentlyTalking='npc',
@@ -451,16 +453,16 @@ class ActTwoLevels:
 		level = Level(
 			map=get_map(10),
 			enemies=[
-				generate_enemy(5, Position(4, 16), name='mut'),
-				generate_enemy(6, Position(20, 16), name='mut'),
-				generate_enemy(5, Position(20, 12), name='mut'),
-				generate_enemy(6, Position(4, 12), name='mut'),
+				generate_enemy(5, Position(4, 16), name='mut', classType='warrior', weapon='Sword'),
+				generate_enemy(6, Position(20, 16), name='mut', classType='warrior', weapon='Sword'),
+				generate_enemy(5, Position(20, 12), name='mut', classType='warrior', weapon='Spear'),
+				generate_enemy(6, Position(4, 12), name='mut', classType='warrior', weapon='Mace'),
 				generate_enemy(7, Position(13, 11), name='mut', weapon='Repeater', classType='sniper'),
 				generate_enemy(8, Position(11, 11), name='mut', weapon='Slngsht', classType='sniper'),
-				generate_enemy(8, Position(5, 15), name='mut', weapon='Slngsht'),
+				generate_enemy(8, Position(5, 15), name='mut', weapon='Bow', classType='sniper'),
 				generate_enemy(9, Position(10, 6), name='mut', weapon='LghtngTm', classType='wizard'),
-				generate_enemy(9, Position(12, 6), name='mut', weapon='LongBow', classType='sniper'),
-				generate_enemy(9, Position(14, 6), name='mut', weapon='Mace', classType='warrior'),
+				generate_enemy(10, Position(12, 6), name='mut', weapon='LongBow', classType='sniper'),
+				generate_enemy(10, Position(14, 6), name='mut', weapon='Mace', classType='warrior'),
 				generate_enemy(11, Position(12, 4), name='mut', weapon='LghtngTm', classType='wizard', ai='stand'),
 			],
 			number=10,
