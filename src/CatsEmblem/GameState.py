@@ -177,6 +177,8 @@ class GameState:
             self.load_level(fetch_level(9))
             self.save_game()
         elif n == 9:
+            self.load_level(fetch_level(n + 1))
+        elif n == 10:
             self.state = 'end'
         else:
             self.state = 'gameover'
