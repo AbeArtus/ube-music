@@ -1,5 +1,5 @@
 <html><head><meta charset="utf-8"></head><script src="https://pygame-web.github.io/cdn/0.9.3/pythons.js" data-os="vtx,fs,gui" type=module id="__main__" async defer>#<!--
-PYGBAG_FS=12
+PYGBAG_FS=13
 # fmt: off
 __import__('os').chdir(__import__('tempfile').gettempdir())
 def fs_decode(fsname, o248):
@@ -20,45 +20,10 @@ syspath.insert(0, '/Games/CatsEmblem')
 
 from Items import itemDict
 
-_add_to_party = None
-_update_bank = None
-_can_give_item = None
-_give_item = None
-_get_cat_at_pos = None
-_get_selected_cat = None
+from Callbacks import add_to_party as add_party_member, can_give_item, give_item, get_cat_at_pos as get_cat_at_position, get_selected_cat
 
-def set_game_state_callbacks(add_to_party, update_bank, can_give_item, give_item, get_cat_at_pos, get_selected_cat):
-	global _add_to_party, _update_bank, _can_give_item, _give_item, _get_cat_at_pos, _get_selected_cat
-	_add_to_party = add_to_party
-	_update_bank = update_bank
-	_can_give_item = can_give_item
-	_give_item = give_item
-	_get_cat_at_pos = get_cat_at_pos
-	_get_selected_cat = get_selected_cat
-
-def can_give_item(position: Position) -> bool:
-	if _can_give_item:
-		return _can_give_item(position)
-	return False
-
-def give_item(position: Position, item) -> bool:
-	if _give_item:
-		_give_item(position, item)
-
-def get_cat_at_position(position: Position):
-	if _get_cat_at_pos:
-		return _get_cat_at_pos(position)
-	return None
-
-def get_selected_cat():
-	if _get_selected_cat:
-		return _get_selected_cat()
-	return None
-
-def add_party_member(cat):
-	if _add_to_party:
-		return _add_to_party(cat)
-	return None
+def set_game_state_callbacks(*_args):
+	pass
 
 
 class ActTwoLevels:
@@ -498,48 +463,10 @@ syspath.insert(0, '/Games/CatsEmblem')
 from Items import itemDict
 from Shared import Conversation, Dialog, House, Position, Shop, ShopItem, Level, generate_enemy
 
-_add_to_party = None
-_update_bank = None
-_can_give_item = None
-_give_item = None
-_get_cat_at_pos = None
-_get_selected_cat = None
+from Callbacks import add_to_party as add_party_member, update_bank as modify_bank, can_give_item, give_item, get_cat_at_pos as get_cat_at_position, get_selected_cat
 
-def set_game_state_callbacks(add_to_party, update_bank, can_give_item, give_item, get_cat_at_pos, get_selected_cat):
-	global _add_to_party, _update_bank, _can_give_item, _give_item, _get_cat_at_pos, _get_selected_cat
-	_add_to_party = add_to_party
-	_update_bank = update_bank
-	_can_give_item = can_give_item
-	_give_item = give_item
-	_get_cat_at_pos = get_cat_at_pos
-	_get_selected_cat = get_selected_cat
-
-def add_party_member(cat):
-	if _add_to_party:
-		_add_to_party(cat)
-
-def modify_bank(amount):
-	if _update_bank:
-		_update_bank(amount)
-
-def can_give_item(position: Position) -> bool:
-	if _can_give_item:
-		return _can_give_item(position)
-	return False
-
-def give_item(position: Position, item) -> bool:
-	if _give_item:
-		_give_item(position, item)
-
-def get_cat_at_position(position: Position):
-	if _get_cat_at_pos:
-		return _get_cat_at_pos(position)
-	return None
-
-def get_selected_cat():
-	if _get_selected_cat:
-		return _get_selected_cat()
-	return None
+def set_game_state_callbacks(*_args):
+	pass
 
 
 class ActOneLevels:
@@ -1153,12 +1080,11 @@ class ActOneLevels:
 
 
 with open("GameState.py","w") as fs:fs.write("""\
-import gc
 from sys import path as syspath
 syspath.insert(0, '/Games/CatsEmblem')
 
-from Shared import fetch_level, Cat, Dialog, Menu, Option, Position, Shop, Stats, WeaponExp, classEnum, itemDict, get_cat, cat_sprite, Level
-from MapData import canWalkOn, tileEncumberence
+print("GameState.py loaded")
+from Shared import fetch_level, Cat, Dialog, Menu, Position, Stats, WeaponExp, classEnum, itemDict, get_cat, cat_sprite
 
 _save_data = None
 
@@ -1276,9 +1202,7 @@ class GameState:
         self.party = party
         
         level_number = saveData.getItem("gameState-level-number")
-
-        nextLevel = fetch_level(level_number)
-        self.load_level(nextLevel)
+        self.load_level(fetch_level(level_number))
 
     def has_saved_game(self):
         saveData = get_save_data()
@@ -1293,9 +1217,13 @@ class GameState:
             )
         )
 
-    def load_level(self, level: Level | None):
+    def load_level(self, level=None):
+        self.level = None
+        self.cached_domain = None
+        self.combat_log = []
+        self.dialog = []
+        self.menu = None
         if level is None:
-            self.level = None
             return
         for i, p in enumerate(self.party):
             p.set_position(level.startingPositions[i])
@@ -1423,7 +1351,7 @@ class GameState:
         selCat = self.get_selected_cat()
         if self.state == 'map':
             if selCat and self.cached_domain:
-                if Position(new_x, new_y) not in self.cached_domain:
+                if (new_x, new_y) not in self.cached_domain:
                     return
 
             if selCat:
@@ -1476,542 +1404,25 @@ class GameState:
         self.menu = None
         self.state = 'map'
 
-    def open_shop_menu(self, shop: Shop):
-        shop_menu_options: list[Option] = []
-
-        def exit_menu():
-            selCat = self.get_selected_cat()
-            selCat.set_exhausted(True)
-            self.cancel_cat_select()
-            self.exit_menu()
-
-        for shop_item in shop.inventory:
-            def make_purchase_action(item=shop_item):
-                def purchase():
-                    
-                    selCat = self.get_selected_cat()
-                    if selCat and len(selCat.items) >= 4:
-                        self.add_dialog(Dialog(
-                            left_cats=[selCat],
-                            currentlyTalking=selCat.name,
-                            lines=["Inventory", "Full!"],
-                        ))
-                        return
-                    if self.bank >= item.price:
-                        self.update_bank(-item.price)
-                        selCat.items.append(item.item)
-                        self.add_dialog(Dialog(
-                            left_cats=[selCat],
-                            currentlyTalking=selCat.name,
-                            lines=[f"Purchased",
-                                   f"{item.item.name}!"],
-                        ))
-                    else:
-                        self.add_dialog(Dialog(
-                            left_cats=[selCat],
-                            currentlyTalking=selCat.name,
-                            lines=["Not enough",
-                                   "gold!"],
-                        ))
-                return purchase
-
-            shop_menu_options.append(Option(
-                label= f"{shop_item.price} {shop_item.item.name}",
-                action= make_purchase_action(),
-                condition= lambda: True
-            ))
-        self.enter_menu(menu = Menu(
-            options=[shop_menu_options],
-            title= [lambda: f"Shop {self.bank}G"],
-            leave_action=exit_menu
-        ))
+    def open_shop_menu(self, shop):
+        import Menus
+        Menus.install(GameState)
+        return self.open_shop_menu(shop)
 
     def open_item_menu(self, option_index=0):
-        selectedCat = self.get_selected_cat()
-        if selectedCat:
-            item_menu_options: list[Option] = []
-            current_option_index = self.menu.option_index if self.menu else 0
-
-            def exit_menu():
-                self.open_unit_menu(current_option_index)
-
-            for i, item in enumerate(selectedCat.items):
-                def open_item_action_menu(index=i):
-                    if selectedCat.exhausted and item.type in ['consumable', 'promote']:
-                        return lambda: None
-                    def item_action_menu():
-                        item = selectedCat.items[index]
-                        item_action_options: list[Option] = []
-
-                        if item.effect and item.type == 'consumable' and not selectedCat.exhausted:
-                            def use_item_action():
-                                def use_item():
-                                    selectedCat.use_item(index)
-                                    selectedCat.set_exhausted(True)
-                                    exit_menu()
-                                return use_item()
-
-                            item_action_options.append(Option(
-                                label= "Use",
-                                action= use_item_action,
-                                condition= lambda: not selectedCat.exhausted
-                            ))
-                        if item.type == 'weapon' and index != 0:
-                            def equip_item_action(item_index=index):
-                                def equip_item(item_index=item_index):
-                                    temp = selectedCat.items[0]
-                                    selectedCat.items[0] = selectedCat.items[item_index]
-                                    selectedCat.items[item_index] = temp
-
-                                    self.state = 'map'
-                                return equip_item
-
-                            item_action_options.append(Option(
-                                label= "Equip",
-                                action= equip_item_action(index),
-                                condition= lambda: item.can_use(selectedCat.classType)
-                            ))
-                        if item.type == 'promote' and selectedCat.level >= 5 and selectedCat.classType == 'pupil':
-                            def promote_action():
-                                def promote():
-                                    promotion_class = item.effect.get('promote', '')
-                                    selectedCat.promote(promotion_class)
-                                    selectedCat.items.pop(index)
-                                    self.add_dialog(Dialog(
-                                        left_cats=[selectedCat],
-                                        currentlyTalking=selectedCat.name,
-                                        lines=["*promoted to", f"{promotion_class}*"],
-                                    ))
-                                    self.state = 'map'
-                                    selectedCat.set_exhausted(True)
-                                    self.selectedCatId = None
-                                return promote
-
-                            item_action_options.append(Option(
-                                label= "Promote",
-                                action= promote_action(),
-                                condition= lambda: not selectedCat.exhausted
-                            ))
-
-                        neighbors = [
-                            Position(selectedCat.position.x + 1, selectedCat.position.y),
-                            Position(selectedCat.position.x - 1, selectedCat.position.y),
-                            Position(selectedCat.position.x, selectedCat.position.y + 1),
-                            Position(selectedCat.position.x, selectedCat.position.y - 1),
-                        ]
-                        nearby_party_members = [
-                            p for p in self.party if p.position in neighbors and p != selectedCat
-                        ]
-                        if nearby_party_members:
-                            def trade_item_action(item_index=index):
-                                def trade_item():
-                                    trade_target_options: list[Option] = []
-                            
-                                    for target_cat in nearby_party_members:
-                                        def select_target_cat(target=target_cat):
-                                            def open_trade_with_target(target=target_cat):
-                                                target_item_options: list[Option] = []
-                            
-                                                for target_item_index, target_item in enumerate(target.items):
-                                                    def select_target_item(target_index=target_item_index):
-                                                        def perform_trade():
-                                                            selected_item = selectedCat.items[item_index]
-                                                            target_item = target.items[target_index]
-                                                            selectedCat.items[item_index] = target_item
-                                                            target.items[target_index] = selected_item
-                                                        
-                                                            selectedCat.set_exhausted(True)
-                                                            self.state = 'map'
-                                                            self.selectedCatId = None
-                            
-                                                        return perform_trade
-                            
-                                                    target_item_options.append(Option(
-                                                        label= target_item.name if target_item else "--",
-                                                        action= select_target_item(target_item_index),
-                                                        condition= lambda: True
-                                                    ))
-
-                                                if len(target.items) < target.max_items:
-                                                    def trade_with_empty_slot():
-                                                        def perform_trade_with_empty():
-                                                            selected_item = selectedCat.items[item_index]
-                                                            target.items.append(selected_item)
-                                                            selectedCat.items.pop(item_index)
-
-                                                            selectedCat.set_exhausted(True)
-                                                            self.selectedCatId = None
-                                                            self.state = 'map'
-                            
-                                                        return perform_trade_with_empty
-                            
-                                                    target_item_options.append(Option(
-                                                        label= "--",
-                                                        action= trade_with_empty_slot(),
-                                                        condition= lambda: True
-                                                    ))
-                            
-                                                self.enter_menu(menu=Menu(
-                                                    options=[target_item_options],
-                                                    title=[lambda: f"Trade with {target.name}"],
-                                                    leave_action=lambda: self.open_item_menu(index)
-                                                ))
-                            
-                                            return open_trade_with_target
-                            
-                                        trade_target_options.append(Option(
-                                            label= target_cat.name,
-                                            action= select_target_cat(target_cat),
-                                            condition= lambda: True
-                                        ))
-                            
-                                    self.enter_menu(menu=Menu(
-                                        options=[trade_target_options],
-                                        title=[lambda: "Select Trade Target"],
-                                        leave_action=lambda: self.open_item_menu(index)
-                                    ))
-                            
-                                return trade_item
-
-                            item_action_options.append(Option(
-                                label= "Trade",
-                                action= trade_item_action(index),
-                                condition= lambda: not selectedCat.exhausted
-                            ))
-
-                        def open_item_stats_menu(sel_item=item):
-                            stats_options: list[Option] = [
-                                Option(label=f"type:{sel_item.type}", action=lambda: None)
-                            ]
-
-                            if sel_item.type == 'weapon':
-                                stats_options.extend([
-                                    Option(label=f"dur:{sel_item.durability}", action=lambda: None),
-                                    Option(label=f"atk:{sel_item.attack}", action=lambda: None),
-                                    Option(label=f"acc:{sel_item.accuracy}", action=lambda: None),
-                                    Option(label=f"rng:{sel_item.range}", action=lambda: None),
-                                    Option(label=f"crt:{sel_item.crit}", action=lambda: None),
-                                ])
-                            elif sel_item.type == 'consumable' and sel_item.effect and 'heal' in sel_item.effect:
-                                stats_options.append(Option(label=f"heal:{sel_item.effect['heal']}", action=lambda: None))
-                            elif sel_item.type == 'promote' and sel_item.effect and 'promote' in sel_item.effect:
-                                stats_options.append(Option(label=f"class:{sel_item.effect['promote']}", action=lambda: None))
-
-                            stats_options.append(Option(label="Back", action=lambda: self.open_item_menu(index)))
-                            self.enter_menu(menu=Menu(
-                                options=[stats_options],
-                                title=[lambda: f"{sel_item.name} Stats"],
-                                leave_action=lambda: self.open_item_menu(index)
-                            ))
-
-                        item_action_options.append(Option(
-                            label="Stats",
-                            action=open_item_stats_menu,
-                            condition=lambda: True
-                        ))
-
-                        self.enter_menu(menu=Menu(
-                            options=[item_action_options],
-                            title=[lambda: f"{item.name} Actions"],
-                            leave_action=lambda: self.open_item_menu(index)
-                        ))
-
-                    return item_action_menu
-
-                item_menu_options.append(Option(
-                    label= f"{item.name}({item.durability})" if item.type == 'weapon' else f"{item.name}",
-                    action= open_item_action_menu(),
-                    condition= lambda: True
-                ))
-
-            self.enter_menu(menu=Menu(
-                options=[item_menu_options],
-                title=[lambda: "Item Menu"],
-                option_index=option_index,
-                leave_action=exit_menu
-            ))
+        import Menus
+        Menus.install(GameState)
+        return self.open_item_menu(option_index)
 
     def open_unit_menu(self, option_index=0):
-        selectedCat = self.get_selected_cat()
+        import Menus
+        Menus.install(GameState)
+        return self.open_unit_menu(option_index)
 
-        def exit_menu():
-            self.state = 'map'
-            self.cancel_cat_select()
-
-        def check_house_condition():
-            house = self.cat_is_on_house()
-            if not selectedCat:
-                return False
-            if selectedCat and selectedCat.exhausted:
-                return False
-            if not house:
-                return False
-            if house.can_visit():
-                return True
-            return False
-        
-        def can_move():
-            return selectedCat is not None and not selectedCat.moved and not selectedCat.exhausted
-
-        def move_action():
-            self.state = 'map'
-
-        def wait_action():
-            if selectedCat:
-                selectedCat.set_exhausted(True)
-            self.cancel_cat_select()
-            self.state = 'map'
-
-        def fight_action():
-            def weapon_in_range(weapon):
-                for enemy in self.level.enemies:
-                    dx = abs(enemy.position.x - selectedCat.position.x)
-                    dy = abs(enemy.position.y - selectedCat.position.y)
-                    if (dx + dy) in weapon.get_range():
-                        return True
-                return False
-
-            validWeapons = [
-                (item, i)
-                for i, item in enumerate(selectedCat.items)
-                if item.type == 'weapon'
-                and item.can_use(selectedCat.classType)
-                and weapon_in_range(item)
-            ]
-
-            self.enter_menu(menu=Menu(
-                options=[[
-                    Option(
-                        label= f"{item.name}",
-                        action= lambda: (selectedCat.equip_item(i), self.set_state('enemy-select')),
-                        condition= lambda: True
-                    ) for item, i in validWeapons
-                ]],
-                title=[lambda: f"Pick Weapon"],
-                leave_action=exit_menu
-            ))
-
-
-        def seize_action():
-            if selectedCat:
-                selectedCat.set_exhausted(True)
-                selectedCat.set_moved(True)
-            self.cancel_cat_select()
-            self.state = 'map'
-            GameState.load_next_level(self)
-
-        def visit_house():
-            house = self.cat_is_on_house()
-            selCat = self.get_selected_cat()
-            houseDialogs = house.get_dialogs()
-            for dialog in houseDialogs:
-                self.add_dialog(dialog)
-            selCat.set_exhausted(True)
-            selCat.set_moved(True)
-            exit_menu()
-
-        def can_attack():
-            cat = self.get_selected_cat()
-            if not cat:
-                return False
-            if cat.exhausted:
-                return False
-            for enemy in self.level.enemies:
-                dx = abs(enemy.position.x - cat.position.x)
-                dy = abs(enemy.position.y - cat.position.y)
-                for catWeapon in [item for item in cat.items if item.type == 'weapon' and item.can_use(cat.classType)]:
-                    if catWeapon and dx + dy in catWeapon.get_range():
-                        return True
-            return False
-        
-        def check_shop_condition():
-            shop = self.cat_is_on_shop()
-            selCat = self.get_selected_cat()
-            if selCat and selectedCat.exhausted:
-                return False
-            return shop is not None
-        
-        def open_shop_action():
-            shop = self.cat_is_on_shop()
-            if shop:
-                self.open_shop_menu(shop)
-                self.needsUpdate = True
-
-        def can_talk():
-            for conversation in self.level.conversations:       
-                if not selectedCat:
-                    return False
-                conversationNames = [conversation.nameOne, conversation.nameTwo]
-                unitsInRange = self.units_in_range(selectedCat.position, 1)
-                if len(unitsInRange) == 0:
-                    return False
-                firstFound = any(conversationNames[0] == unit.name for unit in unitsInRange)
-                secondFound = any(conversationNames[1] == unit.name for unit in unitsInRange)
-                if firstFound and secondFound and conversation.condition():
-                    return True
-            return False
-        
-        def talk_action():
-            for conversation in self.level.conversations:
-                conversationNames = [conversation.nameOne, conversation.nameTwo]
-                unitsInRange = self.units_in_range(self.level.selectorPosition, 1)
-                firstFound = [conversationNames[0] == unit.name for unit in unitsInRange]
-                secondFound = [conversationNames[1] == unit.name for unit in unitsInRange]
-                if firstFound and secondFound:
-                    for dialog in conversation.dialogs:
-                        self.add_dialog(dialog)
-                    # remove conversation so it can't be triggered again
-                    self.level.conversations.remove(conversation)
-                    selectedCat.set_exhausted(True)
-                    exit_menu()
-                    break
-
-        def can_press():
-            cat = self.get_selected_cat()
-            if not cat or cat.exhausted:
-                return False
-            for button in self.level.buttons:
-                if button.position == cat.position and button.can_press():
-                    return True
-            return False
-
-        def press_action():
-            cat = self.get_selected_cat()
-            if not cat:
-                return
-            for button in self.level.buttons:
-                if button.position == cat.position and button.can_press():
-                    button.press()
-                    cat.set_exhausted(True)
-                    cat.set_moved(True)
-                    self.add_dialog(Dialog(
-                        left_cats=[cat],
-                        currentlyTalking=cat.name,
-                        lines=["*pressed the", "button*"],
-                    ))
-                    selectedCat.set_exhausted(True)
-                    exit_menu()
-                    break
-
-        menu_title = f"{selectedCat.name} hp:{selectedCat.hp}" if selectedCat else "Unit Menu"
-        self.enter_menu(menu = Menu(
-            options=[[
-                Option(
-                    label= "Seize",
-                    action= seize_action,
-                    condition= lambda: selectedCat and selectedCat.position == self.level.seizePosition
-                ), Option(
-                    label= "Fight",
-                    action= fight_action,
-                    condition= can_attack
-                ), Option(
-                    label="Press",
-                    action= press_action,
-                    condition= can_press
-                ), Option(
-                    label= "Move",
-                    action= move_action,
-                    condition= can_move
-                ), Option(
-                    label= "Wait",
-                    action= wait_action,
-                    condition= lambda: self.get_selected_cat() is not None and not self.get_selected_cat().exhausted
-                ), Option(
-                    label= "Talk",
-                    action= talk_action,
-                    condition= can_talk
-                ), Option(
-                    label= "Visit",
-                    action= visit_house,
-                    condition= check_house_condition
-                ), Option(
-                    label= "Shop",
-                    action= open_shop_action,
-                    condition= check_shop_condition
-                ), Option(
-                    label= "Items",
-                    action= self.open_item_menu,
-                    condition= lambda: selectedCat is not None and len(selectedCat.items) > 0
-                ), Option(
-                    label= "Stats",
-                    action= lambda: self.open_stats(selectedCat),
-                    condition= lambda: self.selectedCatId is not None
-                ), Option(
-                    label= "End Turn",
-                    action= self.end_turn,
-                    condition= lambda: True
-                )
-            ]],
-            title=[lambda: menu_title],
-            option_index=option_index,
-            leave_action=exit_menu
-        ))
-
-    def open_stats(self, unit: Cat | None):
-        if not unit:
-            self.state = 'map'
-            return
-
-        def close_stats():
-            self.state = 'map'
-            self.cancel_cat_select()
-
-        stats_options = [
-            Option(label=f"lv{unit.level} {unit.classType}", action=lambda: None),
-            Option(label=f"hp: {unit.hp}/{unit.stats.max_hp}", action=lambda: None),
-            Option(label=f"attk: {unit.stats.attack}", action=lambda: None),
-            Option(label=f"defn: {unit.stats.defense}", action=lambda: None),
-            Option(label=f"speed: {unit.stats.speed}", action=lambda: None),
-            Option(label=f"luck: {unit.stats.luck}", action=lambda: None),
-            Option(label=f"rang: {unit.stats.range}", action=lambda: None),
-            Option(label=f"xp: {unit.exp}/{unit.next_level_exp}", action=lambda: None),
-            Option(label="Back", action=close_stats),
-        ]
-
-        growthRate_options = [
-            Option(label=f"atk: {unit.growthRates.attack}", action=lambda: None),
-            Option(label=f"def: {unit.growthRates.defense}", action=lambda: None),
-            Option(label=f"hp: {unit.growthRates.max_hp}", action=lambda: None),
-            Option(label=f"spd: {unit.growthRates.speed}", action=lambda: None),
-            Option(label=f"lck: {unit.growthRates.luck}", action=lambda: None),
-            Option(label=f"rng: {unit.growthRates.range}", action=lambda: None),
-            Option(label="Back", action=close_stats),
-        ]
-
-        WeaponExp_options = []
-
-        for label, value in [
-            ("sword", unit.weaponExp.sword),
-            ("repeatr", unit.weaponExp.repeater),
-            ("longbow", unit.weaponExp.longbow),
-            ("bow", unit.weaponExp.bow),
-            ("lghtng", unit.weaponExp.lightning),
-            ("water", unit.weaponExp.water),
-            ("earth", unit.weaponExp.earth),
-            ("mace", unit.weaponExp.mace),
-            ("spear", unit.weaponExp.spear),
-        ]:
-            if value != -1:
-                WeaponExp_options.append(
-                    Option(label=f"{label}: {value}", action=lambda: None)
-                )
-
-        WeaponExp_options.append(Option(label="Back", action=close_stats))
-        item_options: list[Option] = []
-        for item in unit.items:
-            item_options.append(Option(label=f"{item.name}({item.durability})" if item.type == 'weapon' else f"{item.name}", action=lambda: None))
-        if len(item_options) == 0:
-            item_options.append(Option(label="none", action=lambda: None))
-        item_options.append(Option(label="Back", action=close_stats))
-
-        stats_menu = Menu(
-            options=[stats_options, item_options, WeaponExp_options, growthRate_options],
-            title=[lambda: unit.name, lambda: f"{unit.name} Items", lambda: f"{unit.name} WeapXp", lambda: f"{unit.name} Growth"],
-            option_index=0,
-            leave_action=close_stats
-        )
-        
-        self.enter_menu(stats_menu)
+    def open_stats(self, unit=None):
+        import Menus
+        Menus.install(GameState)
+        return self.open_stats(unit)
 
     def is_occupied(self, position: Position):
         return any(cat.position == position for cat in self.party + self.level.enemies)
@@ -2025,6 +1436,8 @@ import thumbox
 Sprite = thumbox.Thumby().Sprite
 
 syspath.insert(0, '/Games/CatsEmblem')
+
+from MapData import tileEncumberence, canWalkOn
 
 classEnum = {
     'pupil': 0,
@@ -2057,6 +1470,8 @@ classAdvantages = {
 }
 
 class Position:
+    __slots__ = ('x', 'y')
+
     def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
@@ -2073,6 +1488,8 @@ class Position:
         return Position(self.x, self.y)
 
 class Stats:
+    __slots__ = ('attack', 'defense', 'max_hp', 'speed', 'luck', 'range')
+
     def __init__(
             self,
             attack: int = 3,
@@ -2091,6 +1508,8 @@ class Stats:
 
 
 class GrowthRates:
+    __slots__ = ('attack', 'defense', 'max_hp', 'speed', 'luck', 'range')
+
     def __init__(
             self,
             attack: int = 40,
@@ -2108,6 +1527,8 @@ class GrowthRates:
         self.range = range
 
 class WeaponExp:
+    __slots__ = ('sword', 'repeater', 'longbow', 'bow', 'lightning', 'water', 'earth', 'mace', 'spear')
+
     def __init__(
             self,
             sword: int = 0,
@@ -2162,12 +1583,16 @@ class WeaponExp:
                     setattr(self, weapon_type, 0)
 
 class Option:
+    __slots__ = ('label', 'action', 'condition')
+
     def __init__(self, label, action, condition=lambda: True):
         self.label = label
         self.action = action
         self.condition = condition
 
 class Menu:
+    __slots__ = ('options', 'title', 'option_index', 'menu_index', 'leave_action')
+
     def __init__(self, options, title=None, option_index=0, menu_index=0, leave_action=None):
         self.options = options
         self.title = title if title else [lambda: ""]
@@ -2184,7 +1609,13 @@ class Menu:
         return valid_options[offset:offset + max_visible], offset
 
 class Cat:
-    _id_counter = 0  # Class variable for unique IDs
+    _id_counter = 0
+    __slots__ = (
+        'id', '_sprite', '_sprite_factory', 'position', 'selected', 'exhausted',
+        'name', 'stats', 'growthRates', 'enemy', 'hp', 'exp', 'moved', 'level',
+        'next_level_exp', 'aiType', 'aiPath', 'items', 'max_items', 'classType',
+        'weaponExp', '_class_sprite', '_class_sprite_key'
+    )
 
     def __init__(
         self,
@@ -2287,18 +1718,18 @@ class Cat:
         self.set_hp(self.stats.max_hp)
         self.set_selected(False)
 
-    def getClassSprite(self, position: Position = Position(0, 0)):
+    def getClassSprite(self, x=0, y=0):
         sprite_key = (self.enemy, self.classType)
         sprite_data = get_class_overlay_data().get(sprite_key)
         if sprite_data is None:
             return None
 
         if self._class_sprite is None or self._class_sprite_key != sprite_key:
-            self._class_sprite = Sprite(8, 8, sprite_data, position.x, position.y, key=1)
+            self._class_sprite = Sprite(8, 8, sprite_data, x, y, key=1)
             self._class_sprite_key = sprite_key
         else:
-            self._class_sprite.x = position.x
-            self._class_sprite.y = position.y
+            self._class_sprite.x = x
+            self._class_sprite.y = y
         return self._class_sprite
 
     def use_item(self, item_index):
@@ -2339,9 +1770,9 @@ class Cat:
     def set_enemy(self, enemy):
         self.enemy = enemy
 
-    def set_sprite_position(self, position):
-        self.sprite.x = position.x
-        self.sprite.y = position.y
+    def set_sprite_position(self, x, y):
+        self.sprite.x = x
+        self.sprite.y = y
 
     def set_hp(self, new_hp):
         self.hp = min(new_hp, self.stats.max_hp)
@@ -2352,8 +1783,13 @@ class Cat:
         self.sprite.setFrame(nextFrame)
 
     def add_exp(self, amount, addDialog=None):
+        if amount <= 0:
+            return
         levels_gained = ((self.exp % 20) + amount) // 20
         self.exp += amount
+
+        if addDialog and not self.enemy:
+            addDialog([f"{self.name} gained", f"{amount} exp!"], self)
 
         for _ in range(levels_gained):
             self.level_up(addDialog)
@@ -2397,7 +1833,7 @@ class Cat:
 
     def promote(self, new_class: str):
         self.classType = new_class
-        self.classSprite = self.getClassSprite(self.position)
+        self._class_sprite = None
         self.exp = 0
         self.next_level_exp = 12
         if new_class == 'warrior':
@@ -2417,6 +1853,8 @@ class Cat:
             self.weaponExp.add_weapons(['lightning', 'water', 'earth'])
 
 class Dialog:
+    __slots__ = ('lines', 'currentlyTalking', 'left_cats', 'right_cats', 'lambda_after', 'decision', 'overlay', 'timeout')
+
     def __init__(
         self,
         lines=None,
@@ -2438,6 +1876,8 @@ class Dialog:
         self.timeout = timeout
 
 class House:
+    __slots__ = ('position', 'dialogs', 'preVisitedDialogs', 'postVisitDialog', 'visitCondition', 'multipleVisits', 'visited', 'destroyed')
+
     def __init__(
         self,
         position,
@@ -2484,7 +1924,8 @@ class House:
         if not self.visited and self.visitCondition():
             return self.dialogs
         if self.visited and self.postVisitDialog:
-            return self.postVisitDialog
+            d = self.postVisitDialog
+            return d if isinstance(d, list) else [d]
         return []
 
     def destroy(self):
@@ -2495,11 +1936,15 @@ class House:
         self.visitCondition = lambda: False
 
 class ShopItem:
-    def __init__(self, item: Item, price: int):
+    __slots__ = ('item', 'price')
+
+    def __init__(self, item, price):
         self.item: Item = item
         self.price: int = price
 
 class Shop:
+    __slots__ = ('position', 'inventory')
+
     def __init__(
         self,
         position: Position,
@@ -2511,18 +1956,24 @@ class Shop:
 # --- CLASSES ---
 
 class AttackLog:
+    __slots__ = (
+        'attacker_name', 'attacker_hp', 'attacker_max_hp', 'attacker_enemy', 'attacker_sprite',
+        'defender_name', 'defender_hp', 'defender_max_hp', 'defender_enemy', 'defender_sprite',
+        'damage', 'old_hp', 'new_hp', 'miss', 'dodge', 'text', 'static_render_time'
+    )
+
     def __init__(
         self,
         attacker_name: str,
         attacker_hp: int,
         attacker_max_hp: int,
         attacker_enemy: bool,
-        attacker_sprite: Sprite,
-        defender_name: str,
+        attacker_sprite,
+        defender_name,
         defender_hp: int,
         defender_max_hp: int,
         defender_enemy: bool,
-        defender_sprite: Sprite,
+        defender_sprite,
         damage: int,
         old_hp: int,
         new_hp: int,
@@ -2550,6 +2001,8 @@ class AttackLog:
         self.static_render_time = static_render_time
 
 class Button:
+    __slots__ = ('position', 'pressed', 'pressAction', 'canPress', 'unPressAction', 'canUnpress')
+
     def __init__(self, position, pressed=None, pressAction=None, unPressAction=None, canUnpress=None, canPress=None):
         self.position = position
         self.pressed = False if pressed is None else pressed
@@ -2578,6 +2031,8 @@ class Button:
             return self.canPress
 
 class Blockade:
+    __slots__ = ('positions', 'cleared')
+
     def __init__(self, positions, cleared=None):
         self.positions = positions
         self.cleared = cleared if cleared is not None else False
@@ -2589,12 +2044,16 @@ class Blockade:
         self.cleared = False
 
 class OverlayObject:
+    __slots__ = ('position', 'objectName', 'boundPositions')
+
     def __init__(self, position, objectName, boundPositions):
         self.position = position
         self.objectName = objectName
         self.boundPositions = boundPositions
 
 class Conversation:
+    __slots__ = ('dialogs', 'nameOne', 'nameTwo', 'condition')
+
     def __init__(
         self,
         dialogs,
@@ -2608,6 +2067,11 @@ class Conversation:
         self.condition = condition
 
 class Level:
+    __slots__ = (
+        'map', 'enemies', 'viewport', 'selectorPosition', 'number', 'seizePosition',
+        'startingPositions', 'shops', 'houses', 'conversations', 'buttons', 'blockades', 'overlayObjects'
+    )
+
     def __init__(
         self,
         map,
@@ -2645,7 +2109,7 @@ class Level:
         def is_walkable(x, y):
             if not (0 <= x < map_width and 0 <= y < map_height):
                 return False
-            return canWalkOn.get(self.map[y][x], False)
+            return self.map[y][x] in canWalkOn
 
         def get_occupying_unit(x, y):
             for unit in party:
@@ -2668,10 +2132,15 @@ class Level:
         # Tracks best remaining_range seen per (x, y); skip re-processing if not improved.
         position_weight = {}
         valid_positions = set()
-        queue = [(cx, cy, range)]  # used as a stack — pop() is O(1) vs pop(0) O(n)
+        queue = [(cx, cy, range)] 
 
         while queue:
             x, y, rem = queue.pop()
+
+            if not is_walkable(x, y):
+                continue
+            elif is_barrier(x, y):
+                continue
 
             key = (x, y)
             position_weight[key] = rem
@@ -2679,28 +2148,63 @@ class Level:
             occupied_by_enemy = occupying_unit is not None and occupying_unit.enemy != cat.enemy
             occupied_by_ally = occupying_unit is not None and occupying_unit.enemy == cat.enemy
 
-            if not is_walkable(x, y):
-                continue
-            elif is_barrier(x, y):
-                continue
-            elif occupied_by_enemy:
+            if occupied_by_enemy:
                 continue
             elif not occupied_by_ally or (occupied_by_ally and not cat.enemy) or (x == cx and y == cy):
-                valid_positions.add(Position(x, y))
+                valid_positions.add((x, y))
 
             if rem > 0:
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = x +dx, y + dy
                     nkey = (nx, ny)
-                    if nkey not in position_weight or rem - 1 > position_weight[nkey]:
-                        queue.append((nx, ny, rem - 1))
+                    encumbernce = tileEncumberence.get(self.map[y][x], 1)
+                    if nkey not in position_weight or rem - encumbernce > position_weight[nkey]:
+                        queue.append((nx, ny, rem - encumbernce))
 
         return list(valid_positions)
 
-def cat_sprite(): return Sprite(8, 8, cat_sprite_sheet(), 32, 16, key=1)
-def enemy_sprite(): return Sprite(8, 8, enemy_sprite_sheet(), 32, 16, key=1)
-def button_sprite(pos): return Sprite(8, 8, button_sprite_sheet(), pos.x, pos.y)
-def cat_head(pos): return Sprite(40, 40, cat_head_sprite_sheet(), pos.x, pos.y, 1)
+_cat_sprite = None
+_enemy_sprite = None
+_button_sprite = None
+_cat_head_sprite = None
+
+def cat_sprite():
+    global _cat_sprite
+    if _cat_sprite is None:
+        from MapData import cat_sprite_sheet
+        _cat_sprite = Sprite(8, 8, cat_sprite_sheet(), 32, 16, key=1)
+    return _cat_sprite
+
+def enemy_sprite():
+    global _enemy_sprite
+    if _enemy_sprite is None:
+        from MapData import enemy_sprite_sheet
+        _enemy_sprite = Sprite(8, 8, enemy_sprite_sheet(), 32, 16, key=1)
+    return _enemy_sprite
+
+def button_sprite(x=0, y=0):
+    global _button_sprite
+    if _button_sprite is None:
+        from MapData import button_sprite_sheet
+        _button_sprite = Sprite(8, 8, button_sprite_sheet(), x, y)
+    else:
+        _button_sprite.x = x
+        _button_sprite.y = y
+    return _button_sprite
+
+def cat_head(x=16, y=14):
+    global _cat_head_sprite
+    if _cat_head_sprite is None:
+        from MapData import cat_head_sprite_sheet
+        _cat_head_sprite = Sprite(40, 40, cat_head_sprite_sheet(), x, y, 1)
+    else:
+        _cat_head_sprite.x = x
+        _cat_head_sprite.y = y
+    return _cat_head_sprite
+
+def release_title_sprites():
+    global _cat_head_sprite
+    _cat_head_sprite = None
 
 # --- UNITS (lazy) ---
 _unit_cache = {}
@@ -2710,8 +2214,8 @@ def _build_cat_unit():
         sprite=cat_sprite,
         position=Position(2, 4),
         name='cat',
-        stats=Stats(max_hp=10, defense=4, attack=4, speed=3, luck=3, range=4),
-        growthRates=GrowthRates(attack=45, defense=45, luck=50, range=20),
+        stats=Stats(max_hp=10, defense=3, attack=4, luck=3, range=4),
+        growthRates=GrowthRates(attack=45, defense=45, luck=35, range=15),
         items=[itemDict['Stick'], itemDict['Tuna']],
     )
 
@@ -2720,7 +2224,7 @@ def _build_tac_unit():
         sprite=cat_sprite,
         position=Position(5, 13),
         name='tac',
-        stats=Stats(defense=3, attack=4, speed=5, luck=3, range=4),
+        stats=Stats(attack=4, defense=3, speed=4, range=4),
         growthRates=GrowthRates(defense=50, speed=70, luck=25, range=15),
         items=[itemDict['Slngsht']]
     )
@@ -2741,7 +2245,7 @@ def _build_bub_unit():
         sprite=cat_sprite,
         name='bub',
         position=Position(8, 14),
-        stats=Stats(attack=4, defense=3, speed=4, luck=4, range=4),
+        stats=Stats(attack=4, defense=3, luck=4, range=4),
         enemy=False,
         classType='sniper',
         items=[itemDict['Repeater'], itemDict['Tuna']],
@@ -2797,21 +2301,22 @@ def get_npc():
     return _get_or_create_unit('npc', _build_npc_unit)
 
 class PathPoint:
-    def __init__(self, position: Position):
+    __slots__ = ('position', 'visited')
+
+    def __init__(self, position):
         self.position = position
         self.visited = False
 
     def mark_visited(self):
         self.visited = True
 
-def generate_enemy(level: int, position: Position, ai='searchAndDestroy', name='pig', weapon="Stick", classType='pupil', path=None):
-    enemySprite = enemy_sprite()
+def generate_enemy(level, position, ai='searchAndDestroy', name='pig', weapon="Stick", classType='pupil', path=None):
     bigBoiPath = []
     if path is not None:
         for p in path:
             bigBoiPath.append(PathPoint(p))
     e = Cat(
-        sprite=enemySprite,
+        sprite=enemy_sprite,
         position=position,
         name=name,
         enemy=True,
@@ -2831,37 +2336,21 @@ def fetch_level(level_number):
         sys.modules.pop('ActTwo', None)
         from ActOne import ActOneLevels, set_game_state_callbacks
         set_game_state_callbacks(*CALLBACKS)
-        levels = ActOneLevels
-
-        if level_number == 1:
-            return levels._build_level1()
-        elif level_number == 2:
-            return levels._build_level2()
-        elif level_number == 3:
-            return levels._build_level3()
-        elif level_number == 4:
-            return levels._build_level4()
-        elif level_number == 5:
-            return levels._build_level5()
-        return None
-    else:
-        sys.modules.pop('ActOne', None)
-        from ActTwo import ActTwoLevels, set_game_state_callbacks
-        set_game_state_callbacks(*CALLBACKS)
-        levels = ActTwoLevels
-
-        if level_number == 6:
-            return levels._build_level6()
-        elif level_number == 7:
-            return levels._build_level7()
-        elif level_number == 8:
-            return levels._build_level8()
-        elif level_number == 9:
-            return levels._build_level9()
-        elif level_number == 10:
-            return levels._build_level10()
-        else:
-            return None
+        builder = (
+            ActOneLevels._build_level1, ActOneLevels._build_level2, ActOneLevels._build_level3,
+            ActOneLevels._build_level4, ActOneLevels._build_level5
+        )[level_number - 1]
+        level = builder()
+        return level
+    sys.modules.pop('ActOne', None)
+    from ActTwo import ActTwoLevels, set_game_state_callbacks
+    set_game_state_callbacks(*CALLBACKS)
+    builder = (
+        ActTwoLevels._build_level6, ActTwoLevels._build_level7, ActTwoLevels._build_level8,
+        ActTwoLevels._build_level9, ActTwoLevels._build_level10
+    )[level_number - 6]
+    level = builder()
+    return level
 """)
 
 
@@ -2920,6 +2409,555 @@ def get_selected_cat():
 	return _game_state.get_selected_cat()
 
 CALLBACKS = (add_to_party, update_bank, can_give_item, give_item, get_cat_at_pos, get_selected_cat)
+""")
+
+
+with open("Menus.py","w") as fs:fs.write("""\
+from Shared import Dialog, Menu, Option, Position
+
+def install(cls):
+    cls.open_shop_menu = open_shop_menu
+    cls.open_item_menu = open_item_menu
+    cls.open_unit_menu = open_unit_menu
+    cls.open_stats = open_stats
+
+def open_shop_menu(self, shop):
+    shop_menu_options: list[Option] = []
+
+    def exit_menu():
+        selCat = self.get_selected_cat()
+        selCat.set_exhausted(True)
+        self.cancel_cat_select()
+        self.exit_menu()
+
+    for shop_item in shop.inventory:
+        def make_purchase_action(item=shop_item):
+            def purchase():
+                
+                selCat = self.get_selected_cat()
+                if selCat and len(selCat.items) >= 4:
+                    self.add_dialog(Dialog(
+                        left_cats=[selCat],
+                        currentlyTalking=selCat.name,
+                        lines=["Inventory", "Full!"],
+                    ))
+                    return
+                if self.bank >= item.price:
+                    self.update_bank(-item.price)
+                    selCat.items.append(item.item)
+                    self.add_dialog(Dialog(
+                        left_cats=[selCat],
+                        currentlyTalking=selCat.name,
+                        lines=[f"Purchased",
+                               f"{item.item.name}!"],
+                    ))
+                else:
+                    self.add_dialog(Dialog(
+                        left_cats=[selCat],
+                        currentlyTalking=selCat.name,
+                        lines=["Not enough",
+                               "gold!"],
+                    ))
+            return purchase
+
+        shop_menu_options.append(Option(
+            label= f"{shop_item.price} {shop_item.item.name}",
+            action= make_purchase_action(),
+            condition= lambda: True
+        ))
+    self.enter_menu(menu = Menu(
+        options=[shop_menu_options],
+        title= [lambda: f"Shop {self.bank}G"],
+        leave_action=exit_menu
+    ))
+
+def open_item_menu(self, option_index=0):
+    selectedCat = self.get_selected_cat()
+    if selectedCat:
+        item_menu_options: list[Option] = []
+        current_option_index = self.menu.option_index if self.menu else 0
+
+        def exit_menu():
+            self.open_unit_menu(current_option_index)
+
+        for i, item in enumerate(selectedCat.items):
+            def open_item_action_menu(index=i):
+                if selectedCat.exhausted and item.type in ['consumable', 'promote']:
+                    return lambda: None
+                def item_action_menu():
+                    item = selectedCat.items[index]
+                    item_action_options: list[Option] = []
+
+                    if item.effect and item.type == 'consumable' and not selectedCat.exhausted:
+                        def use_item_action():
+                            def use_item():
+                                selectedCat.use_item(index)
+                                selectedCat.set_exhausted(True)
+                                exit_menu()
+                            return use_item()
+
+                        item_action_options.append(Option(
+                            label= "Use",
+                            action= use_item_action,
+                            condition= lambda: not selectedCat.exhausted
+                        ))
+                    if item.type == 'weapon' and index != 0:
+                        def equip_item_action(item_index=index):
+                            def equip_item(item_index=item_index):
+                                temp = selectedCat.items[0]
+                                selectedCat.items[0] = selectedCat.items[item_index]
+                                selectedCat.items[item_index] = temp
+
+                                self.state = 'map'
+                            return equip_item
+
+                        item_action_options.append(Option(
+                            label= "Equip",
+                            action= equip_item_action(index),
+                            condition= lambda: item.can_use(selectedCat.classType)
+                        ))
+                    if item.type == 'promote' and selectedCat.level >= 5 and selectedCat.classType == 'pupil':
+                        def promote_action():
+                            def promote():
+                                promotion_class = item.effect.get('promote', '')
+                                selectedCat.promote(promotion_class)
+                                selectedCat.items.pop(index)
+                                self.add_dialog(Dialog(
+                                    left_cats=[selectedCat],
+                                    currentlyTalking=selectedCat.name,
+                                    lines=["*promoted to", f"{promotion_class}*"],
+                                ))
+                                self.state = 'map'
+                                selectedCat.set_exhausted(True)
+                                self.selectedCatId = None
+                            return promote
+
+                        item_action_options.append(Option(
+                            label= "Promote",
+                            action= promote_action(),
+                            condition= lambda: not selectedCat.exhausted
+                        ))
+
+                    neighbors = [
+                        Position(selectedCat.position.x + 1, selectedCat.position.y),
+                        Position(selectedCat.position.x - 1, selectedCat.position.y),
+                        Position(selectedCat.position.x, selectedCat.position.y + 1),
+                        Position(selectedCat.position.x, selectedCat.position.y - 1),
+                    ]
+                    nearby_party_members = [
+                        p for p in self.party if p.position in neighbors and p != selectedCat
+                    ]
+                    if nearby_party_members:
+                        def trade_item_action(item_index=index):
+                            def trade_item():
+                                trade_target_options: list[Option] = []
+                        
+                                for target_cat in nearby_party_members:
+                                    def select_target_cat(target=target_cat):
+                                        def open_trade_with_target(target=target_cat):
+                                            target_item_options: list[Option] = []
+                        
+                                            for target_item_index, target_item in enumerate(target.items):
+                                                def select_target_item(target_index=target_item_index):
+                                                    def perform_trade():
+                                                        selected_item = selectedCat.items[item_index]
+                                                        target_item = target.items[target_index]
+                                                        selectedCat.items[item_index] = target_item
+                                                        target.items[target_index] = selected_item
+                                                    
+                                                        selectedCat.set_exhausted(True)
+                                                        self.state = 'map'
+                                                        self.selectedCatId = None
+                        
+                                                    return perform_trade
+                        
+                                                target_item_options.append(Option(
+                                                    label= target_item.name if target_item else "--",
+                                                    action= select_target_item(target_item_index),
+                                                    condition= lambda: True
+                                                ))
+
+                                            if len(target.items) < target.max_items:
+                                                def trade_with_empty_slot():
+                                                    def perform_trade_with_empty():
+                                                        selected_item = selectedCat.items[item_index]
+                                                        target.items.append(selected_item)
+                                                        selectedCat.items.pop(item_index)
+
+                                                        selectedCat.set_exhausted(True)
+                                                        self.selectedCatId = None
+                                                        self.state = 'map'
+                        
+                                                    return perform_trade_with_empty
+                        
+                                                target_item_options.append(Option(
+                                                    label= "--",
+                                                    action= trade_with_empty_slot(),
+                                                    condition= lambda: True
+                                                ))
+                        
+                                            self.enter_menu(menu=Menu(
+                                                options=[target_item_options],
+                                                title=[lambda: f"Trade with {target.name}"],
+                                                leave_action=lambda: self.open_item_menu(index)
+                                            ))
+                        
+                                        return open_trade_with_target
+                        
+                                    trade_target_options.append(Option(
+                                        label= target_cat.name,
+                                        action= select_target_cat(target_cat),
+                                        condition= lambda: True
+                                    ))
+                        
+                                self.enter_menu(menu=Menu(
+                                    options=[trade_target_options],
+                                    title=[lambda: "Select Trade Target"],
+                                    leave_action=lambda: self.open_item_menu(index)
+                                ))
+                        
+                            return trade_item
+
+                        item_action_options.append(Option(
+                            label= "Trade",
+                            action= trade_item_action(index),
+                            condition= lambda: not selectedCat.exhausted
+                        ))
+
+                    def open_item_stats_menu(sel_item=item):
+                        stats_options: list[Option] = [
+                            Option(label=f"type:{sel_item.type}", action=lambda: None)
+                        ]
+
+                        if sel_item.type == 'weapon':
+                            stats_options.extend([
+                                Option(label=f"dur:{sel_item.durability}", action=lambda: None),
+                                Option(label=f"atk:{sel_item.attack}", action=lambda: None),
+                                Option(label=f"acc:{sel_item.accuracy}", action=lambda: None),
+                                Option(label=f"rng:{sel_item.range}", action=lambda: None),
+                                Option(label=f"crt:{sel_item.crit}", action=lambda: None),
+                            ])
+                        elif sel_item.type == 'consumable' and sel_item.effect and 'heal' in sel_item.effect:
+                            stats_options.append(Option(label=f"heal:{sel_item.effect['heal']}", action=lambda: None))
+                        elif sel_item.type == 'promote' and sel_item.effect and 'promote' in sel_item.effect:
+                            stats_options.append(Option(label=f"class:{sel_item.effect['promote']}", action=lambda: None))
+
+                        stats_options.append(Option(label="Back", action=lambda: self.open_item_menu(index)))
+                        self.enter_menu(menu=Menu(
+                            options=[stats_options],
+                            title=[lambda: f"{sel_item.name} Stats"],
+                            leave_action=lambda: self.open_item_menu(index)
+                        ))
+
+                    item_action_options.append(Option(
+                        label="Stats",
+                        action=open_item_stats_menu,
+                        condition=lambda: True
+                    ))
+
+                    self.enter_menu(menu=Menu(
+                        options=[item_action_options],
+                        title=[lambda: f"{item.name} Actions"],
+                        leave_action=lambda: self.open_item_menu(index)
+                    ))
+
+                return item_action_menu
+
+            item_menu_options.append(Option(
+                label= f"{item.name}({item.durability})" if item.type == 'weapon' else f"{item.name}",
+                action= open_item_action_menu(),
+                condition= lambda: True
+            ))
+
+        self.enter_menu(menu=Menu(
+            options=[item_menu_options],
+            title=[lambda: "Item Menu"],
+            option_index=option_index,
+            leave_action=exit_menu
+        ))
+
+def open_unit_menu(self, option_index=0):
+    selectedCat = self.get_selected_cat()
+
+    def exit_menu():
+        self.state = 'map'
+        self.cancel_cat_select()
+
+    def check_house_condition():
+        house = self.cat_is_on_house()
+        if not selectedCat:
+            return False
+        if selectedCat and selectedCat.exhausted:
+            return False
+        if not house:
+            return False
+        if house.can_visit():
+            return True
+        return False
+    
+    def can_move():
+        return selectedCat is not None and not selectedCat.moved and not selectedCat.exhausted
+
+    def move_action():
+        self.state = 'map'
+
+    def wait_action():
+        if selectedCat:
+            selectedCat.set_exhausted(True)
+        self.cancel_cat_select()
+        self.state = 'map'
+
+    def fight_action():
+        def weapon_in_range(weapon):
+            for enemy in self.level.enemies:
+                dx = abs(enemy.position.x - selectedCat.position.x)
+                dy = abs(enemy.position.y - selectedCat.position.y)
+                if (dx + dy) in weapon.get_range():
+                    return True
+            return False
+
+        validWeapons = [
+            (item, i)
+            for i, item in enumerate(selectedCat.items)
+            if item.type == 'weapon'
+            and item.can_use(selectedCat.classType)
+            and weapon_in_range(item)
+        ]
+
+        self.enter_menu(menu=Menu(
+            options=[[
+                Option(
+                    label= f"{item.name}",
+                    action= lambda: (selectedCat.equip_item(i), self.set_state('enemy-select')),
+                    condition= lambda: True
+                ) for item, i in validWeapons
+            ]],
+            title=[lambda: f"Pick Weapon"],
+            leave_action=exit_menu
+        ))
+
+
+    def seize_action():
+        if selectedCat:
+            selectedCat.set_exhausted(True)
+            selectedCat.set_moved(True)
+        self.cancel_cat_select()
+        self.state = 'map'
+        self.load_next_level()
+
+    def visit_house():
+        house = self.cat_is_on_house()
+        selCat = self.get_selected_cat()
+        houseDialogs = house.get_dialogs()
+        for dialog in houseDialogs:
+            self.add_dialog(dialog)
+        selCat.set_exhausted(True)
+        selCat.set_moved(True)
+        exit_menu()
+
+    def can_attack():
+        cat = self.get_selected_cat()
+        if not cat:
+            return False
+        if cat.exhausted:
+            return False
+        for enemy in self.level.enemies:
+            dx = abs(enemy.position.x - cat.position.x)
+            dy = abs(enemy.position.y - cat.position.y)
+            for catWeapon in [item for item in cat.items if item.type == 'weapon' and item.can_use(cat.classType)]:
+                if catWeapon and dx + dy in catWeapon.get_range():
+                    return True
+        return False
+    
+    def check_shop_condition():
+        shop = self.cat_is_on_shop()
+        selCat = self.get_selected_cat()
+        if selCat and selectedCat.exhausted:
+            return False
+        return shop is not None
+    
+    def open_shop_action():
+        shop = self.cat_is_on_shop()
+        if shop:
+            self.open_shop_menu(shop)
+            self.needsUpdate = True
+
+    def can_talk():
+        for conversation in self.level.conversations:       
+            if not selectedCat:
+                return False
+            conversationNames = [conversation.nameOne, conversation.nameTwo]
+            unitsInRange = self.units_in_range(selectedCat.position, 1)
+            if len(unitsInRange) == 0:
+                return False
+            firstFound = any(conversationNames[0] == unit.name for unit in unitsInRange)
+            secondFound = any(conversationNames[1] == unit.name for unit in unitsInRange)
+            if firstFound and secondFound and conversation.condition():
+                return True
+        return False
+    
+    def talk_action():
+        for conversation in self.level.conversations:
+            conversationNames = [conversation.nameOne, conversation.nameTwo]
+            unitsInRange = self.units_in_range(self.level.selectorPosition, 1)
+            firstFound = [conversationNames[0] == unit.name for unit in unitsInRange]
+            secondFound = [conversationNames[1] == unit.name for unit in unitsInRange]
+            if firstFound and secondFound:
+                for dialog in conversation.dialogs:
+                    self.add_dialog(dialog)
+                # remove conversation so it can't be triggered again
+                self.level.conversations.remove(conversation)
+                selectedCat.set_exhausted(True)
+                exit_menu()
+                break
+
+    def can_press():
+        cat = self.get_selected_cat()
+        if not cat or cat.exhausted:
+            return False
+        for button in self.level.buttons:
+            if button.position == cat.position and button.can_press():
+                return True
+        return False
+
+    def press_action():
+        cat = self.get_selected_cat()
+        if not cat:
+            return
+        for button in self.level.buttons:
+            if button.position == cat.position and button.can_press():
+                button.press()
+                cat.set_exhausted(True)
+                cat.set_moved(True)
+                self.add_dialog(Dialog(
+                    left_cats=[cat],
+                    currentlyTalking=cat.name,
+                    lines=["*pressed the", "button*"],
+                ))
+                selectedCat.set_exhausted(True)
+                exit_menu()
+                break
+
+    menu_title = f"{selectedCat.name} hp:{selectedCat.hp}" if selectedCat else "Unit Menu"
+    self.enter_menu(menu = Menu(
+        options=[[
+            Option(
+                label= "Seize",
+                action= seize_action,
+                condition= lambda: selectedCat and selectedCat.position == self.level.seizePosition
+            ), Option(
+                label= "Fight",
+                action= fight_action,
+                condition= can_attack
+            ), Option(
+                label="Press",
+                action= press_action,
+                condition= can_press
+            ), Option(
+                label= "Move",
+                action= move_action,
+                condition= can_move
+            ), Option(
+                label= "Wait",
+                action= wait_action,
+                condition= lambda: self.get_selected_cat() is not None and not self.get_selected_cat().exhausted
+            ), Option(
+                label= "Talk",
+                action= talk_action,
+                condition= can_talk
+            ), Option(
+                label= "Visit",
+                action= visit_house,
+                condition= check_house_condition
+            ), Option(
+                label= "Shop",
+                action= open_shop_action,
+                condition= check_shop_condition
+            ), Option(
+                label= "Items",
+                action= self.open_item_menu,
+                condition= lambda: selectedCat is not None and len(selectedCat.items) > 0
+            ), Option(
+                label= "Stats",
+                action= lambda: self.open_stats(selectedCat),
+                condition= lambda: self.selectedCatId is not None
+            ), Option(
+                label= "End Turn",
+                action= self.end_turn,
+                condition= lambda: True
+            )
+        ]],
+        title=[lambda: menu_title],
+        option_index=option_index,
+        leave_action=exit_menu
+    ))
+
+def open_stats(self, unit=None):
+    if not unit:
+        self.state = 'map'
+        return
+
+    def close_stats():
+        self.state = 'map'
+        self.cancel_cat_select()
+
+    stats_options = [
+        Option(label=f"lv{unit.level} {unit.classType}", action=lambda: None),
+        Option(label=f"hp: {unit.hp}/{unit.stats.max_hp}", action=lambda: None),
+        Option(label=f"attk: {unit.stats.attack}", action=lambda: None),
+        Option(label=f"defn: {unit.stats.defense}", action=lambda: None),
+        Option(label=f"speed: {unit.stats.speed}", action=lambda: None),
+        Option(label=f"luck: {unit.stats.luck}", action=lambda: None),
+        Option(label=f"rang: {unit.stats.range}", action=lambda: None),
+        Option(label=f"xp: {unit.exp}/{unit.next_level_exp}", action=lambda: None),
+        Option(label="Back", action=close_stats),
+    ]
+
+    growthRate_options = [
+        Option(label=f"atk: {unit.growthRates.attack}", action=lambda: None),
+        Option(label=f"def: {unit.growthRates.defense}", action=lambda: None),
+        Option(label=f"hp: {unit.growthRates.max_hp}", action=lambda: None),
+        Option(label=f"spd: {unit.growthRates.speed}", action=lambda: None),
+        Option(label=f"lck: {unit.growthRates.luck}", action=lambda: None),
+        Option(label=f"rng: {unit.growthRates.range}", action=lambda: None),
+        Option(label="Back", action=close_stats),
+    ]
+
+    WeaponExp_options = []
+
+    for label, value in [
+        ("sword", unit.weaponExp.sword),
+        ("repeatr", unit.weaponExp.repeater),
+        ("longbow", unit.weaponExp.longbow),
+        ("bow", unit.weaponExp.bow),
+        ("lghtng", unit.weaponExp.lightning),
+        ("water", unit.weaponExp.water),
+        ("earth", unit.weaponExp.earth),
+        ("mace", unit.weaponExp.mace),
+        ("spear", unit.weaponExp.spear),
+    ]:
+        if value != -1:
+            WeaponExp_options.append(
+                Option(label=f"{label}: {value}", action=lambda: None)
+            )
+
+    WeaponExp_options.append(Option(label="Back", action=close_stats))
+    item_options: list[Option] = []
+    for item in unit.items:
+        item_options.append(Option(label=f"{item.name}({item.durability})" if item.type == 'weapon' else f"{item.name}", action=lambda: None))
+    if len(item_options) == 0:
+        item_options.append(Option(label="none", action=lambda: None))
+    item_options.append(Option(label="Back", action=close_stats))
+
+    stats_menu = Menu(
+        options=[stats_options, item_options, WeaponExp_options, growthRate_options],
+        title=[lambda: unit.name, lambda: f"{unit.name} Items", lambda: f"{unit.name} WeapXp", lambda: f"{unit.name} Growth"],
+        option_index=0,
+        leave_action=close_stats
+    )
+    
+    self.enter_menu(stats_menu)
+
 """)
 
 
@@ -3110,6 +3148,7 @@ class Thumby:
                 self.LIGHTGRAY = 3
 
                 self._fps = 0  # non-limiting
+                self._last_frame_time = 0.0
                 self._surface = pygame.Surface((self.width, self.height))
                 self._windowed_size = (self.width * SCALE, self.height * SCALE)
                 self._fullscreen = False
@@ -3212,7 +3251,8 @@ class Thumby:
                 self.textBitmap = bytearray(self.textWidth)
                 self.textCharCount = os.stat(self.textBitmapSource)[6] // self.textWidth
 
-            def update(self):
+            async def update(self):
+                import asyncio
                 self._thumby._poll_input()
                 screen_width, screen_height = self._screen.get_size()
                 scale = min(screen_width / self.width, screen_height / self.height)
@@ -3230,12 +3270,12 @@ class Thumby:
                     ),
                 )
                 pygame.display.flip()
-                if self._fps != 0:
-                    pygame.time.wait(1000 // self._fps)
                 self._thumby._finish_frame()
+                await asyncio.sleep(max(0, (1.0 / self._fps) - (time.time() - self._last_frame_time)))
+                self._last_frame_time = time.time()
 
             def setFPS(self, FPS: int = 0) -> None:
-                self._fps = FPS
+                self._fps = max(0, int(FPS))
 
             def fill(self, color):
                 self._surface.fill(self._grayColor(color))
@@ -3401,24 +3441,54 @@ class Thumby:
                 )
 
     class ThumbyAudio:
+        _MIN_DURATION_MS = 50  # browser audio buffer needs at least ~50ms
+
         def __init__(self):
             self._freq = 0
+            pygame.mixer.quit()
+            pygame.mixer.init(frequency=44100, size=-16, channels=2)
+            actual_freq, actual_size, actual_channels = pygame.mixer.get_init()
+            self._sample_rate = actual_freq
+            self._channels = actual_channels
+            self._bit_depth = abs(actual_size)
+            self._sound_cache = {}
+            pygame.mixer.set_num_channels(4)
+            self._channel = pygame.mixer.Channel(0)
 
-        def play(self, freq, duration):
-            self._freq = freq
-            sample_rate = 44100  # sampling rate in Hz
-            num_samples = int(sample_rate * duration)
-            amplitude = 32767
-            samples = array.array("h")
+        def _make_samples(self, freq, duration):
+            sample_rate = self._sample_rate
+            duration_sec = duration / 1000.0 
+            num_samples = max(1, int(sample_rate * duration_sec))
+
+            if self._bit_depth == 16:
+                amplitude = 32767
+                samples = array.array("h")
+            elif self._bit_depth == 8:
+                amplitude = 127
+                samples = array.array("b")
+            else:
+                amplitude = 32767
+                samples = array.array("h")
+
             for i in range(num_samples):
                 value = int(
                     amplitude * math.sin(2 * math.pi * freq * i / sample_rate)
                 )
-                samples.append(value)
-                samples.append(value)
-            pygame.mixer.init(frequency=sample_rate, size=-16, channels=2)
-            sound = pygame.mixer.Sound(buffer=samples.tobytes())
-            sound.play()
+                for _ in range(self._channels):
+                    samples.append(value)
+            return samples
+
+        def play(self, freq, duration):
+            self._freq = freq
+            duration = max(duration, self._MIN_DURATION_MS)
+            key = (freq, duration)
+
+            sound = self._sound_cache.get(key)
+            if sound is None:
+                samples = self._make_samples(freq, duration)
+                sound = pygame.mixer.Sound(buffer=samples.tobytes())
+                self._sound_cache[key] = sound
+            self._channel.play(sound)
 
         def playBlocking(self, freq, duration):
             self.play(freq, duration)
@@ -3426,7 +3496,7 @@ class Thumby:
                 pygame.time.wait(100)
 
         def stop(self):
-            pygame.mixer.music.stop()
+            self._channel.stop()
 
         def setEnabled(self, setting):
             if setting:
@@ -3533,342 +3603,91 @@ TILE_CLIFF_WATER_XYFLIP = 39
 TILE_BLOCKADE = 40
 TILE_HOUSE_DESTROYED = 41
 
+# sprite bytes only; flips live in _tile_flip_overrides
 tiles = {
-	TILE_GRASS: {"sprite": (bytearray([255, 255, 255, 255, 255, 255, 255, 255]), bytearray([0, 64, 0, 64, 4, 0, 4, 0])), "XFLIP": False, "YFLIP": False},
-	TILE_FOREST: {"sprite": (bytearray([255, 255, 255, 255, 127, 255, 255, 255]), bytearray([0, 0, 96, 124, 255, 124, 96, 0])), "XFLIP": False, "YFLIP": False},
-	TILE_MOUNTAIN: {"sprite": (bytearray([255, 255, 255, 255, 255, 252, 227, 31]), bytearray([192, 240, 252, 255, 255, 255, 252, 224])), "XFLIP": False, "YFLIP": False},
-	TILE_HOUSE: {"sprite": (bytearray([255, 255, 255, 255, 255, 255, 255, 255]), bytearray([8, 252, 142, 239, 239, 142, 252, 8])), "XFLIP": False, "YFLIP": False},
-	TILE_WATER: {"sprite": (bytearray([0, 4, 2, 4, 64, 32, 64, 0, 0, 0, 4, 66, 36, 64, 0, 0]), bytearray([0, 4, 2, 4, 64, 32, 64, 0, 0, 0, 4, 66, 36, 64, 0, 0])), "XFLIP": False, "YFLIP": False},
-	TILE_COAST_X: {"sprite": (bytearray([0, 64, 160, 0, 7, 136, 86, 239, 0, 4, 10, 0, 64, 161, 86, 239]), bytearray([0, 64, 160, 0, 7, 136, 16, 0, 0, 4, 10, 0, 64, 161, 16, 0])), "XFLIP": False, "YFLIP": False},
-	TILE_COASTY: {"sprite": (bytearray([160, 208, 136, 16, 164, 194, 196, 160, 160, 196, 130, 68, 160, 208, 208, 160]), bytearray([32, 16, 8, 16, 36, 2, 4, 32, 32, 4, 2, 68, 32, 16, 16, 32])), "XFLIP": False, "YFLIP": False},
-	TILE_BRIDGE: {"sprite": (bytearray([126, 126, 126, 126, 126, 126, 126, 126]), bytearray([193, 193, 193, 193, 193, 193, 193, 193])), "XFLIP": False, "YFLIP": False},
-	TILE_CLIFF_TOP: {"sprite": (bytearray([254, 254, 254, 254, 254, 254, 254, 254]), bytearray([1, 1, 1, 1, 1, 1, 1, 1])), "XFLIP": False, "YFLIP": False},
-	TILE_CLIFF_RIGHT: {"sprite": (bytearray([255, 255, 255, 255, 255, 255, 255, 0]), bytearray([0, 0, 0, 0, 0, 0, 0, 255])), "XFLIP": False, "YFLIP": False},
-	TILE_CLIFFBTLBR: {"sprite": (bytearray([1, 3, 7, 15, 31, 63, 127, 255]), bytearray([255, 254, 252, 248, 240, 224, 192, 128])), "XFLIP": False, "YFLIP": False},
-	TILE_CLIFF_TTLBR: {"sprite": (bytearray([127, 191, 223, 239, 247, 251, 253, 254]), bytearray([128, 64, 32, 16, 72, 36, 66, 1])), "XFLIP": False, "YFLIP": False},
-	TILE_CLIFF_STRAIGHT: {"sprite": (bytearray([129, 129, 129, 129, 129, 129, 129, 129]), bytearray([255, 255, 255, 255, 255, 255, 255, 255])), "XFLIP": False, "YFLIP": False},
-	TILE_COAST_CORNER_BR: {"sprite": (bytearray([160, 208, 160, 0, 164, 217, 194, 247, 136, 200, 128, 4, 130, 192, 194, 247]), bytearray([32, 16, 32, 0, 36, 25, 0, 0, 8, 8, 0, 4, 2, 0, 0, 0])),"XFLIP": False, "YFLIP": False },
-	TILE_STAIRS: {"sprite": (bytearray([255, 255, 255, 255, 255, 255, 255, 255]), bytearray([85, 85, 85, 85, 85, 85, 85, 85])), "XFLIP": False, "YFLIP": False},
-	TILE_SHOP: {"sprite": (bytearray([255, 255, 255, 255, 255, 255, 255, 255]), bytearray([254, 2, 5, 229, 229, 5, 2, 254])), "XFLIP": False, "YFLIP": False},
-	WALL_TOP: {"sprite": (bytearray([127, 127, 127, 127, 127, 127, 127, 1]), bytearray([128, 254, 254, 254, 254, 254, 254, 254])), "XFLIP": False, "YFLIP": False},
-	WALL_SIDE: {"sprite": (bytearray([17, 17, 68, 68, 17, 17, 68, 68]), bytearray([85, 17, 85, 68, 85, 17, 85, 68])), "XFLIP": False, "YFLIP": False},
-	TILE_WATER_CLIFF: {"sprite": (bytearray([0, 1, 3, 7, 15, 31, 63, 127]), bytearray([1, 2, 4, 8, 16, 32, 64, 128])), "XFLIP": False, "YFLIP": False},
-    TILE_SEIZE: {"sprite": (bytearray([255, 127, 127, 127, 127, 127, 127, 255]), bytearray([252, 134, 131, 129, 129, 131, 134, 252])), "XFLIP": False, "YFLIP": False},
-    TILE_CLIFF_WATER: {"sprite": (bytearray([128, 64, 32, 16, 136, 68, 2, 145, 128, 64, 32, 208, 72, 36, 130, 77]), bytearray([255, 127, 63, 31, 143, 71, 3, 145, 255, 127, 63, 223, 79, 39, 131, 77])), "XFLIP": False, "YFLIP": False},
-    TILE_BLOCKADE: {"sprite": (bytearray([0, 122, 4, 106, 86, 32, 94, 0]), bytearray([255, 255, 255, 255, 255, 255, 255, 255])), "XFLIP": False, "YFLIP": False},
-    TILE_HOUSE_DESTROYED: {"sprite": (bytearray([255, 255, 255, 255, 255, 255, 255, 255]), bytearray([192, 240, 152, 248, 252, 176, 224, 0])), "XFLIP": False, "YFLIP": False},
+	0: (bytearray.fromhex('ffffffffffffffff'), bytearray.fromhex('0040004004000400')),
+	1: (bytearray.fromhex('ffffffff7fffffff'), bytearray.fromhex('0000607cff7c6000')),
+	2: (bytearray.fromhex('fffffffffffce31f'), bytearray.fromhex('c0f0fcfffffffce0')),
+	3: (bytearray.fromhex('ffffffffffffffff'), bytearray.fromhex('08fc8eefef8efc08')),
+	5: (bytearray.fromhex('00040204402040000000044224400000'), bytearray.fromhex('00040204402040000000044224400000')),
+	6: (bytearray.fromhex('0040a000078856ef00040a0040a156ef'), bytearray.fromhex('0040a0000788100000040a0040a11000')),
+	8: (bytearray.fromhex('a0d08810a4c2c4a0a0c48244a0d0d0a0'), bytearray.fromhex('20100810240204202004024420101020')),
+	10: (bytearray.fromhex('7e7e7e7e7e7e7e7e'), bytearray.fromhex('c1c1c1c1c1c1c1c1')),
+	22: (bytearray.fromhex('fefefefefefefefe'), bytearray.fromhex('0101010101010101')),
+	24: (bytearray.fromhex('ffffffffffffff00'), bytearray.fromhex('00000000000000ff')),
+	11: (bytearray.fromhex('0103070f1f3f7fff'), bytearray.fromhex('fffefcf8f0e0c080')),
+	15: (bytearray.fromhex('7fbfdfeff7fbfdfe'), bytearray.fromhex('8040201048244201')),
+	17: (bytearray.fromhex('8181818181818181'), bytearray.fromhex('ffffffffffffffff')),
+	26: (bytearray.fromhex('a0d0a000a4d9c2f788c8800482c0c2f7'), bytearray.fromhex('20102000241900000808000402000000')),
+	18: (bytearray.fromhex('ffffffffffffffff'), bytearray.fromhex('5555555555555555')),
+	19: (bytearray.fromhex('ffffffffffffffff'), bytearray.fromhex('fe0205e5e50502fe')),
+	20: (bytearray.fromhex('7f7f7f7f7f7f7f01'), bytearray.fromhex('80fefefefefefefe')),
+	21: (bytearray.fromhex('1111444411114444'), bytearray.fromhex('5511554455115544')),
+	30: (bytearray.fromhex('000103070f1f3f7f'), bytearray.fromhex('0102040810204080')),
+	34: (bytearray.fromhex('ff7f7f7f7f7f7fff'), bytearray.fromhex('fc868381818386fc')),
+	36: (bytearray.fromhex('8040201088440291804020d04824824d'), bytearray.fromhex('ff7f3f1f8f470391ff7f3fdf4f27834d')),
+	40: (bytearray.fromhex('007a046a56205e00'), bytearray.fromhex('ffffffffffffffff')),
+	41: (bytearray.fromhex('ffffffffffffffff'), bytearray.fromhex('c0f098f8fcb0e000')),
 }
 
 _tile_flip_overrides = {
-    TILE_COAST_XFLIP: (TILE_COAST_X, True, False),
-    TILE_COASTY_YFLIP: (TILE_COASTY, False, True),
-    TILE_CLIFF_B_TLBR_XFLIP: (TILE_CLIFFBTLBR, True, False),
-    TILE_CLIFF_B_TLBR_YFLIP: (TILE_CLIFFBTLBR, False, True),
-    TILE_CLIFF_B_TLBR_XYFLIP: (TILE_CLIFFBTLBR, True, True),
-    TILE_CLIFF_TTLBR_XFLIP: (TILE_CLIFF_TTLBR, True, False),
-    TILE_CLIFF_RIGHT_XFLIP: (TILE_CLIFF_RIGHT, True, False),
-    TILE_COAST_CORNER_BR_XFLIP: (TILE_COAST_CORNER_BR, True, False),
-    TILE_COAST_CORNER_BR_YFLIP: (TILE_COAST_CORNER_BR, False, True),
-    TILE_COAST_CORNER_BR_XYFLIP: (TILE_COAST_CORNER_BR, True, True),
-    TILE_WATER_CLIFF_YFLIP: (TILE_WATER_CLIFF, False, True),
-    TILE_WATER_CLIFF_XFLIP: (TILE_WATER_CLIFF, True, False),
-    TILE_WATER_CLIFF_XYFLIP: (TILE_WATER_CLIFF, True, True),
-    TILE_CLIFF_WATER_YFLIP: (TILE_CLIFF_WATER, False, True),
-    TILE_CLIFF_WATER_XFLIP: (TILE_CLIFF_WATER, True, False),
-    TILE_CLIFF_WATER_XYFLIP: (TILE_CLIFF_WATER, True, True),
+	7: (6, True, False),
+	9: (8, False, True),
+	12: (11, True, False),
+	13: (11, False, True),
+	14: (11, True, True),
+	16: (15, True, False),
+	25: (24, True, False),
+	27: (26, True, False),
+	28: (26, False, True),
+	29: (26, True, True),
+	31: (30, False, True),
+	32: (30, True, False),
+	33: (30, True, True),
+	37: (36, False, True),
+	38: (36, True, False),
+	39: (36, True, True),
+	23: (22, False, True),
 }
 
-def get_tile_data(tile_type: int):
-    tileData = tiles.get(tile_type, None)
-    size_x = 8
-    size_y = 8
-    if tileData:
-        return tileData["sprite"], tileData["XFLIP"], tileData["YFLIP"], size_x, size_y
-
-    override = _tile_flip_overrides.get(tile_type, None)
-    if override:
-        base_type, x_flip, y_flip = override
-        baseData = tiles.get(base_type, None)
-        if baseData:
-            return baseData["sprite"], x_flip, y_flip, size_x, size_y
-
-    return None, False, False, size_x, size_y
+def get_tile_data(tile_type):
+	sprite = tiles.get(tile_type)
+	if sprite:
+		return sprite, False, False, 8, 8
+	override = _tile_flip_overrides.get(tile_type)
+	if override:
+		base, x_flip, y_flip = override
+		sprite = tiles.get(base)
+		if sprite:
+			return sprite, x_flip, y_flip, 8, 8
+	return None, False, False, 8, 8
 
 canWalkOn = {
-	TILE_GRASS: True,
-	TILE_FOREST: True,
-	TILE_MOUNTAIN: False,
-	TILE_HOUSE: True,
-    TILE_HOUSE_DESTROYED: True,
-	EMPTY: True,
-	TILE_WATER: False,
-	TILE_COAST_X: False,
-	TILE_COAST_XFLIP: False,
-	TILE_COASTY: False,
-	TILE_COASTY_YFLIP: False,
-	TILE_BRIDGE: True,
-	TILE_CLIFFBTLBR: False,
-	TILE_CLIFF_B_TLBR_XFLIP: False,
-	TILE_CLIFF_B_TLBR_YFLIP: False,
-	TILE_CLIFF_B_TLBR_XYFLIP: False,
-	TILE_CLIFF_TTLBR: False,
-	TILE_CLIFF_TTLBR_XFLIP: False,
-	TILE_CLIFF_STRAIGHT: False,
-	TILE_STAIRS: True,
-	TILE_SHOP: True,
-	WALL_TOP: False,
-	WALL_SIDE: False,
-	TILE_CLIFF_TOP: True,
-	TILE_CLIFF_TOP_YFLIP: True,
-	TILE_CLIFF_RIGHT: True,
-	TILE_CLIFF_RIGHT_XFLIP: True,
-	TILE_COAST_CORNER_BR: False,
-	TILE_COAST_CORNER_BR_XFLIP: False,
-	TILE_COAST_CORNER_BR_YFLIP: False,
-	TILE_COAST_CORNER_BR_XYFLIP: False,
-    TILE_SEIZE: True,
-    TILE_BARRIER: False,
+	0, 1, 3, 4, 10, 18, 19, 22, 23, 24, 25, 34, 41
 }
 
-tileEncumberence = {
-	TILE_FOREST: 2,
-}
+tileEncumberence = {1: 2}
 
-tileEvation = {
-	TILE_FOREST: 20,
-	TILE_GRASS: 5,
-	TILE_HOUSE: 10,
-	TILE_SHOP: 10,
-}
+tileEvation = {1: 20, 0: 5, 3: 10, 19: 10}
 
-class MapData:
-    def get_map1():
-        return [
-        [TILE_COASTY, TILE_COASTY, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-        [TILE_GRASS, TILE_GRASS, TILE_COAST_CORNER_BR_XFLIP, TILE_COASTY, TILE_COASTY, TILE_COASTY, TILE_COASTY, TILE_WATER, TILE_WATER, TILE_WATER],
-        [TILE_GRASS, TILE_SEIZE, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_COAST_CORNER_BR_XFLIP, TILE_COASTY, TILE_COASTY],
-        [TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_FOREST],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN],
-        [TILE_MOUNTAIN, TILE_GRASS, TILE_FOREST, TILE_GRASS, EMPTY, TILE_GRASS, TILE_FOREST, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN],
-        [WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, EMPTY, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP],
-        [WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, EMPTY, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE],
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN, TILE_MOUNTAIN],
-        [TILE_MOUNTAIN, TILE_FOREST, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN],
-        [TILE_MOUNTAIN, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, TILE_FOREST, TILE_FOREST, TILE_FOREST, TILE_MOUNTAIN],
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, TILE_HOUSE, TILE_SHOP, TILE_HOUSE, TILE_MOUNTAIN],
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, TILE_MOUNTAIN],
-        [TILE_MOUNTAIN, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST],
-        [TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST],
-        [TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_FOREST]
-    ]
+_MAPS = (
+	(10, bytes.fromhex('0808050505050505050500001b08080808050505002200000000001b080801040404040404000001040404040404040001020200010004000100020214141414041414141414151515150415151515150202000404000001020202010000040404000102020400040401010101020202010404000313030202020004040100040402020100040404040404010200000404000404000101010000010100000101')),
+	(14, bytes.fromhex('010004000004000400010004000100040300030404040401040404000404040404040400040004040400040104040404040e111119000404000004000404010101010b040401040404040400010102010e121214040404010000010201000404001500040404000101010104040401041400000000010100040404040000150401020201010404000000000400040001010102010401000404040400040000010204000004040400002204040104020400040104041404040404040404040404040403150004040400000104000404000404')),
+	(15, bytes.fromhex('040400040004001b0505050600010004040404010104000705051a04220401010404040404041b0506000404040404040404040404041b1a040404000404040404040404040001000404040404040401000004040404040404040404040000000104040404040400041412121214110b000000040c1111111504040415010e111111110d010300040404040404040404040404040404010404040404040404040404040404000000000c11111412121212141111111111110d00001504040404150100000000000401040404040404040404040404040404040404040404040404')),
+	(9, bytes.fromhex('03030404040404040004040100010404040404000101040400040404010001000404040404040104040404041d040104000404040407040404040404041d05040401000404010705040202020204020705040004130204040705040404040200041b0504000404020104041b040400040004040404000022040404000304040004000404040400')),
+	(16, bytes.fromhex('050505060404041303000202010404040505050604040404000404020104040405050506040004040404000204010404050505051c000000040402010404040405050505060400000404020404040404050805051a040404040404040404000006000a0a04040404040404040400000405090506040404040404141414141414050505051c04040404041515151515150505050506040000040401000101030005050505060404000404040400040401050505050602020404040404040404030505050506040102040404040404040405050505051c040002040404040404040118050505060400020202040004040422040a0a0a0a040104010100010100040118050505060404040404000404040411110505050604040404040404040404')),
+	(20, bytes.fromhex('1414141414141414141414141414141414141414141515151514151515151515151415151515151414040404041404040404040404140404040404141404040404140404041404040414040422040414140404040414040404140404041404040404041414040404041414041414040404141414041414141404040404141504151404040414151504151514140404040414040404140404041404040404041414040404040404040414040404140404040404141404040404140404041404040414040404040414140404040414140414140404041404040404041414040404041415041514040404140404040404141404040404140404041404040415040404040414140404040414040104140404040404040404041414040404041404040414040404040404040404141414141414141414141414141414141414141414')),
+	(11, bytes.fromhex('0113001301040404040102000404040004010400220004000404040404040404040002020202040404040404020201040400040402000401000104010202000402020001040002020202040400040404020203010104040104040402010201020401000404040002020204040404000404040400040401040401010404040404020202020003040104040201010004040404040401020004040004000104040404040404040001010000040404040404')),
+	(20, bytes.fromhex('05050505050505050505050508080808050505051f0100040404040000210506020200001b05050502010100220400000100050602000001011b050502010004040400000000050600000000000101050b00000000000000000c050604040404000404070e11111212121211110d071a04040404040400070200010004040001021d060004040404040002071c000001010404001d050614000404040402020706000401010104001b05061514140404141414070604040401010001011b051c1515040415151507051c000404040400000007060100040403030207050602000000040404040a0a040404040404020705051c0200010404000207060004040400021d050505050909090909090905051c000400000207050505050505050505050505050509090909090505')),
+	(20, bytes.fromhex('0202010102000e1111110b0101141410220f1414010303130200000000010e111115151212121515020404000204040400000200000404040404000002020402000404040404040404040404040404000004040404040404040404040404040404040404140404040414040404020404040404040404040415121212121511110b02020c111111110b04040c04040404040400000e11110d010000010e11110d020004040404000202010000040404040401000200020204040400000200000404040404040404020301020404040404040404040404040404040404000404040404040402040404040404040404040400000c1111110b02020c1111111111121212121111110d0101000e11110d000000040404040404040202040404040400000202040404040404040404020004040404040404020404040104040404010104040404040404040404040404040404040401040004040404040404040404040404040404010404')),
+	(25, bytes.fromhex('000202010705050505050505050505050505050505080808081c0102000705050505050505050505050505050506000102000600001d05050505050505050505050505050505051c00011d05090905050505050505050505050505050505050505090905050505050505051f16162323162323161621050505050505050505050505051f04040404040404040404042105050505050505050505051f04010404000404040004040104210505050505050505051f0104040404040400040404040404012105050505050505050b000004040c11121212110b040000040c05050505051f16160e0b00010c0d04040404040e0b01040c0d1616210505190104040e0b0c0d000004040404040e0b0c0d04040118050519000404040e0d0404040404000404040e0d04040404180505190004040404040404040404040404040404040404001805050b0400040404040c111112121211110b0404040400000c05050e1111111111110d010404040404010e1111111111110d050519010004040000040404040404040404040000040401180505190004040404040404040404040404040404040404001805050b0404040404040404040404040404040404040400040c0505261111111111111212121212121212121111111111112405')),
+)
 
-    def get_map2():
-        return [
-        [TILE_FOREST, TILE_GRASS, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, TILE_FOREST, TILE_GRASS, EMPTY, TILE_GRASS, TILE_FOREST],
-        [TILE_GRASS, EMPTY, TILE_HOUSE, TILE_GRASS, TILE_HOUSE, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, EMPTY, EMPTY, EMPTY, TILE_GRASS],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS],
-        [EMPTY, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_RIGHT_XFLIP, TILE_GRASS, EMPTY, EMPTY],
-        [TILE_GRASS, TILE_GRASS, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, TILE_FOREST, TILE_FOREST, TILE_FOREST, TILE_CLIFFBTLBR, EMPTY, EMPTY, TILE_FOREST],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_MOUNTAIN, TILE_FOREST, TILE_CLIFF_B_TLBR_XYFLIP, TILE_STAIRS, TILE_STAIRS, WALL_TOP],
-        [EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, WALL_SIDE],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, EMPTY, TILE_FOREST, EMPTY],
-        [WALL_TOP, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS],
-        [WALL_SIDE, EMPTY, TILE_FOREST, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, EMPTY],
-        [TILE_GRASS, EMPTY, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_FOREST, TILE_MOUNTAIN, TILE_FOREST, EMPTY, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY],
-        [EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS],
-        [TILE_GRASS, TILE_SEIZE, EMPTY, EMPTY, TILE_FOREST, EMPTY, TILE_MOUNTAIN, EMPTY, TILE_GRASS, EMPTY, TILE_FOREST, EMPTY, EMPTY, WALL_TOP],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_HOUSE, WALL_SIDE],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_FOREST, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY]
-    ]
-
-    def get_map3():
-        return [
-        [EMPTY, EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, TILE_GRASS, TILE_FOREST, TILE_GRASS],
-        [EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_FOREST, EMPTY, TILE_GRASS, TILE_COAST_XFLIP, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR, EMPTY, TILE_SEIZE, EMPTY],
-        [TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER, TILE_COAST_X, TILE_GRASS, EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_COAST_CORNER_BR_XFLIP, TILE_COAST_CORNER_BR, EMPTY, EMPTY, EMPTY, TILE_GRASS],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY],
-        [WALL_TOP, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, WALL_TOP, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, TILE_GRASS, TILE_GRASS, TILE_GRASS, EMPTY, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT],
-        [WALL_SIDE, EMPTY, EMPTY, EMPTY, WALL_SIDE, TILE_FOREST, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_FOREST, TILE_HOUSE, TILE_GRASS],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, WALL_TOP, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, WALL_TOP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT],
-        [TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_GRASS, TILE_GRASS, WALL_SIDE, EMPTY, EMPTY, EMPTY, EMPTY, WALL_SIDE, TILE_FOREST, TILE_GRASS],
-        [TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, EMPTY, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
-    ]
-
-    def get_map4():
-        return [
-        [TILE_HOUSE, TILE_HOUSE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS],
-        [EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY],
-        [EMPTY, TILE_GRASS, TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY],
-        [EMPTY, TILE_FOREST, TILE_GRASS, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY],
-        [EMPTY, EMPTY, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_COAST_CORNER_BR_XYFLIP],
-        [EMPTY, TILE_FOREST, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_COAST_XFLIP],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_COAST_CORNER_BR_XYFLIP, TILE_WATER],
-        [EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, TILE_COAST_XFLIP, TILE_WATER],
-        [EMPTY, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, TILE_MOUNTAIN, TILE_COAST_XFLIP, TILE_WATER],
-        [EMPTY, TILE_GRASS, EMPTY, TILE_SHOP, TILE_MOUNTAIN, EMPTY, EMPTY, TILE_COAST_XFLIP, TILE_WATER],
-        [EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_GRASS, EMPTY, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER],
-        [EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_FOREST, EMPTY, EMPTY, TILE_COAST_CORNER_BR_XFLIP],
-        [EMPTY, EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, TILE_GRASS, TILE_SEIZE, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_HOUSE, EMPTY],
-        [EMPTY, TILE_GRASS, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS]
-    ]
-
-    def get_map5():
-        return [
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, EMPTY, TILE_SHOP, TILE_HOUSE, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, EMPTY, EMPTY, EMPTY],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_FOREST, EMPTY, EMPTY, EMPTY],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, EMPTY, TILE_FOREST, EMPTY, EMPTY],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, TILE_GRASS, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_WATER, TILE_COASTY, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS],
-        [TILE_COAST_X, TILE_GRASS, TILE_BRIDGE, TILE_BRIDGE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY],
-        [TILE_WATER, TILE_COASTY_YFLIP, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_HOUSE, TILE_GRASS],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_HOUSE],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, TILE_FOREST, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, EMPTY, TILE_GRASS, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_FOREST, TILE_CLIFF_RIGHT, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY],
-        [TILE_SEIZE, EMPTY, TILE_BRIDGE, TILE_BRIDGE, TILE_BRIDGE, TILE_BRIDGE, EMPTY, TILE_FOREST, EMPTY, TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_GRASS, EMPTY],
-        [TILE_FOREST, TILE_CLIFF_RIGHT, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
-    ]
-
-    def get_map6():
-        return [
-        [WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP],
-        [WALL_TOP, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_TOP, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_TOP, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_SIDE, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, TILE_SEIZE, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_TOP, EMPTY, WALL_TOP, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_TOP, WALL_TOP, EMPTY, WALL_TOP, WALL_TOP, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_SIDE, EMPTY, WALL_SIDE, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_SIDE, WALL_SIDE, EMPTY, WALL_SIDE, WALL_SIDE, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_TOP, EMPTY, WALL_TOP, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, WALL_SIDE, EMPTY, WALL_SIDE, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_SIDE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, TILE_FOREST, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP],
-        [WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP, WALL_TOP]
-    ]
-
-    def get_map7():
-        return [
-        [TILE_FOREST, TILE_SHOP, TILE_GRASS, TILE_SHOP, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_MOUNTAIN],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, TILE_FOREST, EMPTY, TILE_GRASS, TILE_SEIZE, TILE_GRASS],
-        [EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_GRASS, EMPTY],
-        [TILE_FOREST, TILE_GRASS, TILE_FOREST, EMPTY, TILE_FOREST, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_GRASS, EMPTY, TILE_MOUNTAIN, TILE_MOUNTAIN],
-        [TILE_GRASS, TILE_FOREST, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, TILE_GRASS],
-        [EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_HOUSE, TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, TILE_FOREST],
-        [EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_FOREST, TILE_MOUNTAIN, TILE_FOREST, TILE_MOUNTAIN, EMPTY, TILE_FOREST, TILE_GRASS],
-        [EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, EMPTY, EMPTY],
-        [TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_MOUNTAIN],
-        [TILE_GRASS, TILE_HOUSE, EMPTY, TILE_FOREST, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_FOREST, TILE_FOREST, TILE_GRASS, EMPTY],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_MOUNTAIN, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS],
-        [EMPTY, TILE_GRASS, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
-    ]
-
-    def get_map8():
-        return [
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COASTY, TILE_COASTY, TILE_COASTY, TILE_COASTY, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-        [TILE_WATER_CLIFF_YFLIP, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_WATER_CLIFF_XYFLIP, TILE_WATER, TILE_COAST_X, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER, TILE_WATER, TILE_WATER],
-        [TILE_MOUNTAIN, TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_SEIZE, EMPTY, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_GRASS, TILE_WATER, TILE_COAST_X, TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER, TILE_WATER],
-        [TILE_MOUNTAIN, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_WATER, TILE_COAST_X, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_WATER],
-        [TILE_CLIFFBTLBR, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_CLIFF_B_TLBR_XFLIP, TILE_WATER, TILE_COAST_X, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_COAST_XFLIP],
-        [TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_COAST_XFLIP, TILE_COAST_CORNER_BR, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_COAST_XFLIP],
-        [TILE_MOUNTAIN, TILE_GRASS, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN, TILE_COAST_CORNER_BR_XYFLIP, TILE_COAST_X, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_COAST_XFLIP],
-        [TILE_COAST_CORNER_BR_YFLIP, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, TILE_COAST_CORNER_BR_XYFLIP, TILE_WATER, TILE_COAST_X, WALL_TOP, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_COAST_XFLIP],
-        [TILE_COAST_X, TILE_GRASS, EMPTY, TILE_FOREST, TILE_FOREST, TILE_FOREST, EMPTY, TILE_GRASS, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER, TILE_COAST_X, WALL_SIDE, WALL_TOP, WALL_TOP, EMPTY, EMPTY, WALL_TOP, WALL_TOP, WALL_TOP, TILE_COAST_XFLIP],
-        [TILE_COAST_X, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_FOREST, TILE_FOREST, TILE_COAST_CORNER_BR_XFLIP, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, WALL_SIDE, WALL_SIDE, EMPTY, EMPTY, WALL_SIDE, WALL_SIDE, WALL_SIDE, TILE_COAST_XFLIP],
-        [TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_COAST_XFLIP, TILE_COAST_X, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, TILE_HOUSE, TILE_HOUSE, TILE_MOUNTAIN, TILE_COAST_XFLIP],
-        [TILE_WATER, TILE_COAST_X, TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_BRIDGE, TILE_BRIDGE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, TILE_COAST_XFLIP],
-        [TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, TILE_MOUNTAIN, TILE_GRASS, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_COAST_XFLIP, TILE_COAST_X, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_COAST_CORNER_BR_XYFLIP, TILE_WATER],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, TILE_GRASS, EMPTY, TILE_GRASS, TILE_GRASS, TILE_MOUNTAIN, TILE_COAST_XFLIP, TILE_WATER],
-        [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_WATER, TILE_WATER]
-    ]
-
-    def get_map9():
-        return [
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, TILE_FOREST, TILE_MOUNTAIN, TILE_GRASS, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, TILE_FOREST, TILE_FOREST, WALL_TOP, WALL_TOP, TILE_CLIFF_TTLBR_XFLIP, TILE_SEIZE, TILE_CLIFF_TTLBR, WALL_TOP, WALL_TOP],
-        [TILE_FOREST, TILE_HOUSE, TILE_HOUSE, TILE_SHOP, TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, WALL_SIDE, WALL_SIDE, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, WALL_SIDE, WALL_SIDE],
-        [TILE_MOUNTAIN, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS],
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, TILE_MOUNTAIN, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [WALL_TOP, EMPTY, EMPTY, EMPTY, EMPTY, WALL_TOP, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [WALL_SIDE, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, WALL_SIDE, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XFLIP],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_FOREST, TILE_GRASS, TILE_GRASS, TILE_FOREST, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP],
-        [TILE_MOUNTAIN, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_GRASS, TILE_MOUNTAIN],
-        [TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_MOUNTAIN, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN],
-        [TILE_HOUSE, TILE_FOREST, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_GRASS, TILE_GRASS, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_CLIFF_STRAIGHT],
-        [TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_FOREST, TILE_FOREST, TILE_GRASS, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_GRASS, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-        [TILE_MOUNTAIN, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_MOUNTAIN, EMPTY, EMPTY, EMPTY, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_FOREST],
-        [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, EMPTY],
-        [TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, EMPTY, EMPTY]
-    ]
-
-    def get_map10():
-        return [
-    [TILE_GRASS, TILE_MOUNTAIN, TILE_MOUNTAIN, TILE_FOREST, TILE_COAST_XFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COASTY, TILE_COASTY, TILE_COASTY, TILE_COASTY],
-    [TILE_COAST_CORNER_BR_YFLIP, TILE_FOREST, TILE_MOUNTAIN, TILE_GRASS, TILE_COAST_XFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_X, TILE_GRASS, TILE_FOREST, TILE_MOUNTAIN, TILE_GRASS],
-    [TILE_COAST_X, TILE_GRASS, TILE_GRASS, TILE_COAST_CORNER_BR_XYFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COAST_CORNER_BR_YFLIP, TILE_GRASS, TILE_FOREST, TILE_COAST_CORNER_BR_XYFLIP],
-    [TILE_WATER, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_COASTY_YFLIP, TILE_COASTY_YFLIP, TILE_WATER],
-    [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER_CLIFF_YFLIP, TILE_CLIFF_TOP, TILE_CLIFF_TOP, TILE_BARRIER, TILE_BARRIER, TILE_CLIFF_TOP, TILE_BARRIER, TILE_BARRIER, TILE_CLIFF_TOP, TILE_CLIFF_TOP, TILE_WATER_CLIFF_XYFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-    [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER_CLIFF_YFLIP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_WATER_CLIFF_XYFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-    [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER_CLIFF_YFLIP, EMPTY, TILE_FOREST, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, EMPTY, TILE_WATER_CLIFF_XYFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-    [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER_CLIFF_YFLIP, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_WATER_CLIFF_XYFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-    [TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER, TILE_CLIFFBTLBR, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, TILE_CLIFF_B_TLBR_XFLIP, TILE_WATER, TILE_WATER, TILE_WATER, TILE_WATER],
-    [TILE_WATER, TILE_WATER_CLIFF_YFLIP, TILE_CLIFF_TOP, TILE_CLIFF_TOP, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFFBTLBR, TILE_GRASS, TILE_FOREST, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_B_TLBR_YFLIP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFFBTLBR, TILE_FOREST, EMPTY, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_B_TLBR_YFLIP, TILE_CLIFF_TOP, TILE_CLIFF_TOP, TILE_WATER_CLIFF_XYFLIP, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_RIGHT_XFLIP, TILE_FOREST, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFFBTLBR, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_B_TLBR_YFLIP, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFFBTLBR, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_B_TLBR_YFLIP, EMPTY, EMPTY, TILE_FOREST, TILE_CLIFF_RIGHT, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_RIGHT_XFLIP, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_B_TLBR_YFLIP, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_B_TLBR_YFLIP, EMPTY, EMPTY, EMPTY, EMPTY, TILE_CLIFF_RIGHT, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_RIGHT_XFLIP, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_CLIFF_RIGHT, TILE_WATER],
-    [TILE_WATER, TILE_CLIFFBTLBR, EMPTY, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, TILE_CLIFF_B_TLBR_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFFBTLBR, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, TILE_CLIFF_B_TLBR_XFLIP, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_FOREST, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_FOREST, TILE_CLIFF_B_TLBR_XYFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_B_TLBR_YFLIP, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_RIGHT_XFLIP, TILE_FOREST, TILE_GRASS, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_GRASS, EMPTY, EMPTY, TILE_FOREST, TILE_CLIFF_RIGHT, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_RIGHT_XFLIP, TILE_GRASS, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, TILE_CLIFF_RIGHT, TILE_WATER],
-    [TILE_WATER, TILE_CLIFFBTLBR, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TILE_GRASS, EMPTY, TILE_CLIFF_B_TLBR_XFLIP, TILE_WATER],
-    [TILE_WATER, TILE_CLIFF_WATER_XFLIP, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_STAIRS, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_STRAIGHT, TILE_CLIFF_WATER, TILE_WATER]
-]
-
-def get_map(map_number: int):
-    mapData = MapData
-    if map_number == 1:
-        return mapData.get_map1()
-    elif map_number == 2:
-        return mapData.get_map2()
-    elif map_number == 3:
-        return mapData.get_map3()
-    elif map_number == 4:
-        return mapData.get_map4()
-    elif map_number == 5:
-        return mapData.get_map5()
-    elif map_number == 6: 
-        return mapData.get_map6()
-    elif map_number == 7:
-        return mapData.get_map7()
-    elif map_number == 8:
-        return mapData.get_map8()
-    elif map_number == 9:
-        return mapData.get_map9()
-    elif map_number == 10:
-        return mapData.get_map10()
-    else:
-        return None
+def get_map(map_number):
+	if map_number < 1 or map_number > len(_MAPS):
+		return None
+	w, data = _MAPS[map_number - 1]
+	return [data[i:i + w] for i in range(0, len(data), w)]
 
 def cat_sprite_sheet(): return (bytearray([0, 207, 15, 15, 192, 5, 241, 244, 6, 201, 15, 15, 192, 5, 241, 244, 7, 201, 14, 15, 192, 5, 241, 244, 1, 206, 15, 15, 192, 5, 241, 244]))
 def enemy_sprite_sheet(): return (bytearray([3, 143, 2, 4, 129, 1, 228, 242, 3, 143, 2, 4, 145, 17, 196, 242, 7, 139, 2, 4, 129, 1, 228, 242]), bytearray([252, 112, 253, 251, 118, 246, 27, 13, 252, 112, 253, 251, 102, 230, 59, 13, 248, 116, 253, 251, 118, 246, 27, 13]))
@@ -3994,15 +3813,17 @@ def _build_item(item_name: str):
         return Item(name="NewBal", item_type="consumable", effect={"speed": 3})
     raise KeyError(item_name)
 
+_ITEM_NAMES = frozenset((
+    "Stick", "Slngsht", "LghtngTm", "WaterTm", "EarthTm",
+    "LongBow", "Bow", "Repeater", "Sword", "Spear", "Mace",
+    "MagPowder", "RabFoot", "Armor", "PowerRing", "NewBal",
+    "NecTome", "BulTome", "MultiShot", "Launcher", "Axe", "VoidSwd",
+    "Tuna", "MystPot", "MstMeal", "MstQll"
+))
+
 class LazyItemDict:
     def __contains__(self, key):
-        return key in {
-            "Stick", "Slngsht", "LghtngTm", "WaterTm", "EarthTm",
-            "LongBow", "Bow", "Repeater", "Sword", "Spear", "Mace",
-            "MagPowder", "RabFoot", "Armor", "PowerRing", "NewBal",
-            "NecTome", "BulTome", "MultiShot", "Launcher", "Axe", "VoidSwd",
-            "Tuna", "MystPot", "MstMeal", "MstQll"
-        }
+        return key in _ITEM_NAMES
 
     def __getitem__(self, key):
         if key not in self:
@@ -4050,7 +3871,7 @@ def render_loading_screen(message: str):
 thumby.display.setFPS(10)
 render_loading_screen("Loading")
 
-from MapData import get_tile_data, canWalkOn, tileEvation
+from MapData import get_tile_data, canWalkOn, tileEvation, TILE_BLOCKADE
 
 checkClearMem("MapData imported")
 from Items import weaponAdvantages
@@ -4072,6 +3893,9 @@ import Callbacks
 gameState = GameState()
 Callbacks.set_game_state(gameState)
 checkClearMem("Callbacks")
+import Menus
+Menus.install(GameState)
+checkClearMem("Menus")
 
 _selector_sprite = None
 
@@ -4081,6 +3905,24 @@ def get_selector_sprite():
 		from MapData import selector_sprite_sheet
 		_selector_sprite = thumby.Sprite(10, 10, selector_sprite_sheet(), 32, 16, key=3)
 	return _selector_sprite
+
+def note_to_freq(note_str: str) -> float:
+    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    flat_map = {'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#'}
+    note_str = note_str.strip()
+    if note_str[1] in ['#', 'b']:
+        pitch = note_str[:2]
+        octave = int(note_str[2:])
+    else:
+        pitch = note_str[:1]
+        octave = int(note_str[1:])
+    if pitch in flat_map:
+        pitch = flat_map[pitch]
+    pitch_index = note_names.index(pitch)
+    midi_num = (octave + 1) * 12 + pitch_index
+    freq = 520 * (2 ** ((midi_num - 69) / 12))
+    
+    return int(freq)
 
 # --- CONSTANTS ---
 SCREEN_TILES_X = 9
@@ -4162,9 +4004,11 @@ def battle(attacker: Cat, defender: Cat):
 	attackerExp = 0
 	defenderExp = 0
 
-	attackerExp =+ record_attack(attacker, defender)
+	expMultiplier = defender.level / attacker.level if defender.enemy else attacker.level / defender.level
+
+	attackerExp += record_attack(attacker, defender)
 	if defender.hp <= 0:
-		attacker.add_exp(defender.stats.max_hp, addDialog)
+		attacker.add_exp(int(defender.stats.max_hp * expMultiplier), addDialog)
 		return
 
 	defender_weapon = defender.get_weapon()
@@ -4174,20 +4018,20 @@ def battle(attacker: Cat, defender: Cat):
 	if dx + dy in defender_ranges:
 		defenderExp += record_attack(defender, attacker)
 		if attacker.hp <= 0:
-			defender.add_exp(attacker.stats.max_hp, addDialog)
+			defender.add_exp(int(attacker.stats.max_hp * expMultiplier), addDialog)
 			return
 
 	if attacker.stats.speed * int(1.5) > defender.stats.speed:
 		attackerExp += record_attack(attacker, defender, is_counter=True)
 	if defender.hp <= 0:
-		attacker.add_exp(defender.stats.max_hp, addDialog)
+		attacker.add_exp(int(defender.stats.max_hp * expMultiplier), addDialog)
 		return
 
 	if dx + dy in defender_ranges:
 		if defender.stats.speed * int(1.5) > attacker.stats.speed:
 			attackerExp += record_attack(defender, attacker, is_counter=True)
 		if attacker.hp <= 0:
-			defender.add_exp(attacker.stats.max_hp, addDialog)
+			defender.add_exp(int(attacker.stats.max_hp * expMultiplier), addDialog)
 			return
 
 	defender.add_exp(defenderExp, addDialog)
@@ -4208,7 +4052,7 @@ def record_attack(attacker: Cat, defender: Cat, is_counter: bool = False) -> int
 	defenderDodge = defender.stats.defense + defender.stats.speed + defender.stats.luck
 	attackerAttackPower = attacker.stats.speed + attacker.stats.luck + attacker.stats.attack
 	attackDodge = randInt < (defenderDodge - attackerAttackPower) * 3
-	randInt = int("".join(reversed(f"{randInt:02}")))
+	randInt = random.randint(1, 100)
 	attackHit = randInt <= attackerWeapon.accuracy - tileEvationBonus
 
 	damage = calculate_damage(attacker, defender) if attackHit and not attackDodge else 0
@@ -4232,7 +4076,7 @@ def record_attack(attacker: Cat, defender: Cat, is_counter: bool = False) -> int
 		miss=not attackHit,
 		dodge=attackDodge,
 		text=f"{'' if attackHit else 'miss'}",
-		static_render_time= 2 if not attackHit or attackDodge or damage == 0 else 0
+		static_render_time= 3 if not attackHit or attackDodge or damage == 0 else 1
 	)
 
 	gameState.combat_log.append(log)
@@ -4325,9 +4169,10 @@ def handle_movement():
 
 	for button, (dx, dy) in directions.items():
 		if getattr(thumby, f"button{button}").justPressed() or getattr(thumby, f"button{button}").pressed():
+			thumby.audio.play(note_to_freq("F#5"), 15)
 			new_x, new_y = x + dx, y + dy
 			if 0 <= new_y < len(gameState.level.map) and 0 <= new_x < len(gameState.level.map[0]):
-				isWalkable = gameState.level.map[new_y][new_x] in canWalkOn and canWalkOn[gameState.level.map[new_y][new_x]]
+				isWalkable = gameState.level.map[new_y][new_x] in canWalkOn
 			else:
 				isWalkable = False
 			for unit in gameState.level.enemies:
@@ -4349,6 +4194,10 @@ def render_map(level):
 	thumby.display.fill(thumby.display.WHITE)
 
 	text = None
+
+	mod8 = frame % 8
+	if (mod8 == 0 or mod8 == 3) and gameState.selectedCatId is not None:
+		thumby.audio.play(note_to_freq("F#3"), 10)
 
 	for y in range(SCREEN_TILES_Y):
 		for x in range(SCREEN_TILES_X):
@@ -4373,7 +4222,7 @@ def render_map(level):
 		gameState.level.viewport.y <= button.position.y < gameState.level.viewport.y + SCREEN_TILES_Y:
 			x = button.position.x - gameState.level.viewport.x
 			y = button.position.y - gameState.level.viewport.y
-			buttonSprite = button_sprite(Position(x*8, y*8))
+			buttonSprite = button_sprite(x * 8, y * 8)
 			if button.pressed:
 				buttonSprite.setFrame(1)
 			thumby.display.drawSprite(buttonSprite)
@@ -4387,7 +4236,6 @@ def render_map(level):
 					map_y = pos.y
 					x = map_x - gameState.level.viewport.x
 					y = map_y - gameState.level.viewport.y
-					from MapData import TILE_BLOCKADE
 					blockSprite = get_render_tile_sprite(TILE_BLOCKADE, map_x, map_y, x, y)
 					thumby.display.drawSprite(blockSprite)
 
@@ -4398,8 +4246,7 @@ def render_map(level):
 				x = overlayObject.position.x - gameState.level.viewport.x
 				y = overlayObject.position.y - gameState.level.viewport.y
 				if overlayObject.objectName == "cat_head":
-					from Shared import cat_head
-					overlaySprite = cat_head(Position(x*8, y*8))
+					overlaySprite = cat_head(x * 8, y * 8)
 					thumby.display.drawSprite(overlaySprite)
 					break
 
@@ -4410,9 +4257,9 @@ def render_map(level):
 			bumpSelected = -1 if frame % 8 < 2 and isSelected else 0
 			unit_screen_x = (unit.position.x - gameState.level.viewport.x) * 8
 			unit_screen_y = (unit.position.y - gameState.level.viewport.y) * 8 + bumpSelected
-			unit.set_sprite_position(Position(unit_screen_x, unit_screen_y))
+			unit.set_sprite_position(unit_screen_x, unit_screen_y)
 			thumby.display.drawSprite(unit.sprite)
-			classSprite = unit.getClassSprite(Position(unit_screen_x, unit_screen_y))
+			classSprite = unit.getClassSprite(unit_screen_x, unit_screen_y)
 			if classSprite != None:
 				thumby.display.drawSprite(classSprite)
 
@@ -4442,8 +4289,12 @@ def render_map(level):
 
 def animate_cats():
 	global gameState
+	seen = []
 	for c in gameState.party + gameState.level.enemies:
-		c.advance_animation()
+		spr = c.sprite
+		if spr not in seen:
+			seen.append(spr)
+			c.advance_animation()
 
 def get_attack_tile(cat: Cat):
 	global gameState
@@ -4460,14 +4311,14 @@ def get_attack_tile(cat: Cat):
 
 	for p in gameState.party:
 		for pos in domain:
-			if abs(pos.x - p.position.x) + abs(pos.y - p.position.y) in weapon_ranges:
+			if abs(pos[0] - p.position.x) + abs(pos[1] - p.position.y) in weapon_ranges:
 				diff = cat.level - p.level
 				p_weapon = p.get_weapon()
 				if p_weapon and weaponAdvantages.get(weapon.type) == p_weapon.type:
 					diff += 1
 				if classAdvantages.get(cat.classType) == p.classType:
 					diff += 1
-				potential_targets.append((pos, p, diff))
+				potential_targets.append((Position(pos[0], pos[1]), p, diff))
 				break
 
 	if not potential_targets:
@@ -4475,8 +4326,8 @@ def get_attack_tile(cat: Cat):
 			if house.destroyed or abs(house.position.x - cat.position.x) + abs(house.position.y - cat.position.y) > cat.stats.range:
 				continue
 			for pos in domain:
-				if pos.x == house.position.x and pos.y == house.position.y:
-					potential_targets.append((pos, None, 0))
+				if pos[0] == house.position.x and pos[1] == house.position.y:
+					potential_targets.append((Position(pos[0], pos[1]), None, 0))
 					break
 
 	if not potential_targets and cat.aiType == "path" and cat.aiPath and not cat.moved:
@@ -4492,15 +4343,16 @@ def get_attack_tile(cat: Cat):
 					continue
 				nearest_path_point = {"position": pos, "distance": distance}
 		if nearest_path_point["position"]:
-			closest = min(domain, key=lambda pos: abs(pos.x - nearest_path_point["position"].x) + abs(pos.y - nearest_path_point["position"].y), default=None)
+			target = nearest_path_point["position"]
+			closest = min(domain, key=lambda pos: abs(pos[0] - target.x) + abs(pos[1] - target.y), default=None)
 			if closest:
-				potential_targets.append((closest, None, 0))
+				potential_targets.append((Position(closest[0], closest[1]), None, 0))
 					
 	if not potential_targets and cat.aiType == "omnipresence" and not cat.moved:
 		target_pos = gameState.party[0].position
-		closest = min(domain, key=lambda pos: abs(pos.x - target_pos.x) + abs(pos.y - target_pos.y), default=None)
+		closest = min(domain, key=lambda pos: abs(pos[0] - target_pos.x) + abs(pos[1] - target_pos.y), default=None)
 		if closest:
-			potential_targets.append((closest, None, 0))
+			potential_targets.append((Position(closest[0], closest[1]), None, 0))
 
 	if not potential_targets:
 		return None, None
@@ -4515,10 +4367,8 @@ async def main():
 	while True:
 		frame += 1
 
-		partyFullyExhausted = all(p.exhausted for p in gameState.party) if gameState.party else None
-		if partyFullyExhausted is not None and partyFullyExhausted and gameState.player_turn:
-			gameState.end_turn()
 
+		partyFullyExhausted = all(p.exhausted for p in gameState.party) if gameState.party else None
 		if (gameState.state == 'map' or gameState.state == 'enemy-turn' or gameState.state == 'enemy-select')\
 		and not len(gameState.dialog) > 0 and not len(gameState.combat_log) > 0:
 			if currentFont == "5x7":
@@ -4568,10 +4418,12 @@ async def main():
 			log.defender_sprite.y = 8
 			thumby.display.drawSprite(log.defender_sprite)
 			if (log.miss or log.dodge):
+				if log.static_render_time == 3:
+					if (frame % 2 == 1): thumby.audio.play(note_to_freq("C5" if enemyAttacking else "G#4"), 40)
 				thumby.display.drawText('dodge' if log.dodge else 'miss', 40 if enemyAttacking else 8, 16, thumby.display.BLACK)
 
 			# Animate HP counting down
-			if (frame % 3 == 1): 
+			if (frame % 2 == 1): 
 				if log.static_render_time > 0:
 					log.static_render_time -= 1
 				elif current_hp_display <= gameState.combat_log[0].new_hp or current_hp_display <= 0:
@@ -4580,6 +4432,7 @@ async def main():
 						current_hp_display = gameState.combat_log[0].old_hp
 				else:
 					current_hp_display = current_hp_display - 1
+					thumby.audio.play(note_to_freq("Eb5" if enemyAttacking else "C#5"), 10)
 			if len(gameState.combat_log) == 0:
 				current_hp_display = -1
 
@@ -4629,50 +4482,52 @@ async def main():
 				gameState.pop_dialog()
 			else:
 				if thumby.buttonA.justPressed():
+					thumby.audio.play(note_to_freq("C#6"), 20)
 					if dialog.lambda_after:
 						dialog.lambda_after()
 					gameState.pop_dialog()
 				if dialog.decision and thumby.buttonB.justPressed():
+					thumby.audio.play(note_to_freq("C6"), 20)
 					gameState.pop_dialog()
+
+		elif partyFullyExhausted is not None and partyFullyExhausted and gameState.player_turn and gameState.state == 'map':
+			thumby.audio.play(note_to_freq("Ab5"), 100)
+			gameState.end_turn()
 
 		elif gameState.state == 'title':
 			thumby.display.fill(thumby.display.WHITE)
 			thumby.display.drawText("Cats Emblem", 3, 4, thumby.display.BLACK)
-			head = cat_head(Position(16, 14))
-			thumby.display.drawSprite(head)
-
-			def load_game_action():
-				if gameState.has_saved_game():
-					gameState.load_game()
-					gameState.state = 'map'
-		
-			menu_options = [
-				Option(
-					label= "New Game",
-					action= lambda: (gameState.start_game(), setattr(gameState, 'state', 'map')),
-					condition= lambda: True
-				),
-				Option(
-					label= "Load Game",
-					action= load_game_action,
-					condition= lambda: gameState.has_saved_game()
-				)
-			]
+			thumby.display.drawSprite(cat_head(16, 14))
 
 			if thumby.buttonA.justPressed():
+				thumby.audio.play(note_to_freq("F#6"), 20)
+				def load_game_action():
+					from Shared import release_title_sprites
+					if gameState.has_saved_game():
+						release_title_sprites()
+						gameState.load_game()
+						gameState.state = 'map'
+				def new_game_action():
+					from Shared import release_title_sprites
+					release_title_sprites()
+					gameState.start_game()
+					gameState.state = 'map'
 				title_menu = Menu(
-					options=[menu_options],
+					options=[[
+						Option(label="New Game", action=new_game_action),
+						Option(label="Load Game", action=load_game_action, condition=lambda: gameState.has_saved_game())
+					]],
 					title=[lambda: "Main Menu"],
 					leave_action=lambda: setattr(gameState, 'state', 'title')
 				)
-			
 				gameState.enter_menu(title_menu)
 
 		elif gameState.state == 'map':
-			handle_movement()
+			moved = handle_movement()
 			if (frame % 5 == 0): animate_cats()
 
 			if thumby.buttonA.justPressed():
+				thumby.audio.play(note_to_freq("A#5"), 20)
 				cat_here = None
 				enemy_here = None
 				for c in gameState.party:
@@ -4690,7 +4545,6 @@ async def main():
 					else:
 						gameState.select_cat(cat_here)
 						gameState.cached_domain = gameState.find_valid_positions(cat_here, cat_here.stats.range)
-						# gameState.open_unit_menu()
 				elif gameState.selectedCatId != None:
 					cat = gameState.get_selected_cat()
 					if cat:
@@ -4705,20 +4559,21 @@ async def main():
 					gameState.open_unit_menu()
 
 			if thumby.buttonB.justPressed():
+				thumby.audio.play(note_to_freq("G#5"), 20)
 				if gameState.selectedCatId is not None:
 					gameState.cancel_cat_select()
 				else:
 					# cycle through party memebers
-					non_moved_cats = [c for c in gameState.party if not c.moved]
+					active_cats = [c for c in gameState.party if not c.moved and not c.exhausted]
 
-					if len(non_moved_cats) > 0:
+					if len(active_cats) > 0:
 						current_index = -1
 						for i, c in enumerate(gameState.party):
 							if c.position == gameState.level.selectorPosition:
 								current_index = i
 								break
-						next_index = (current_index + 1) % len(non_moved_cats)
-						next_cat = non_moved_cats[next_index]
+						next_index = (current_index + 1) % len(active_cats)
+						next_cat = active_cats[next_index]
 						gameState.update_selector_position(next_cat.position.x, next_cat.position.y)
 
 		elif gameState.state == 'menu':
@@ -4739,25 +4594,32 @@ async def main():
 					thumby.display.drawText(menu_option.label, 2, 8 + i * 8, selected)
 
 				visible_options = gameState.menu.get_options()
+				button_pressed = False
 				if thumby.buttonU.justPressed() and gameState.menu.option_index > 0:
 					gameState.menu.option_index -= 1
+					thumby.audio.play(note_to_freq("F#5"), 15)
 				elif thumby.buttonD.justPressed() and gameState.menu.option_index < len(visible_options) - 1:
 					gameState.menu.option_index += 1
+					thumby.audio.play(note_to_freq("F#5"), 15)
 		
 				elif thumby.buttonL.justPressed() and gameState.menu.menu_index > 0:
 					gameState.menu.menu_index -= 1
 					gameState.menu.option_index = 0
+					thumby.audio.play(note_to_freq("F5"), 15)
 		
 				elif thumby.buttonR.justPressed() and gameState.menu.menu_index < len(gameState.menu.options) - 1:
 					gameState.menu.menu_index += 1
 					gameState.menu.option_index = 0
+					thumby.audio.play(note_to_freq("F5"), 15)
 		
 				elif thumby.buttonA.justPressed():
+					thumby.audio.play(note_to_freq("C#6"), 15)
 					valid_options = gameState.menu.get_options()
 					if valid_options:
 						valid_options[gameState.menu.option_index].action()
-		
+					
 				elif thumby.buttonB.justPressed():
+					thumby.audio.play(note_to_freq("G#6"), 15)
 					if gameState.menu.leave_action:
 						gameState.menu.leave_action()
 
@@ -4780,15 +4642,18 @@ async def main():
 				option = 0
 			else:
 				if thumby.buttonU.justPressed() or thumby.buttonL.justPressed():
+					thumby.audio.play(note_to_freq("C#6"), 20)
 					option = (option - 1) % len(enemies_in_range)
 					enX = enemies_in_range[option].position.x
 					enY = enemies_in_range[option].position.y
 					gameState.update_selector_position(enX, enY)
 				elif thumby.buttonD.justPressed() or thumby.buttonR.justPressed():
+					thumby.audio.play(note_to_freq("C#6"), 20)
 					option = (option + 1) % len(enemies_in_range)
 					gameState.update_selector_position(enemies_in_range[option].position.x, enemies_in_range[option].position.y)
 
 				if thumby.buttonA.justPressed():
+					thumby.audio.play(note_to_freq("F6"), 20)
 					selected_enemy = enemies_in_range[option]
 					
 					battle(selected_cat, selected_enemy)
@@ -4797,6 +4662,7 @@ async def main():
 					gameState.selectedCatId = None
 					gameState.set_state('map')
 				elif thumby.buttonB.justPressed():
+					thumby.audio.play(note_to_freq("A#6"), 20)
 					if selected_cat: gameState.update_selector_position(selected_cat.position.x, selected_cat.position.y)
 					gameState.open_unit_menu()
 					option = 0
@@ -4811,6 +4677,7 @@ async def main():
 						activeEnemy = None
 
 					if target and readyForBattle:
+						thumby.audio.play(note_to_freq("Ab5"), 20)
 						battle(activeEnemy, target)
 						activeEnemy.set_exhausted(True)
 						activeEnemy = None
@@ -4818,14 +4685,21 @@ async def main():
 
 					elif target and not readyForBattle:
 						if closest_tile:
+							thumby.audio.play(note_to_freq("Eb5"), 20)
 							activeEnemy.set_position(closest_tile)
 							activeEnemy.set_moved(True)
 							gameState.update_selector_position(closest_tile.x, closest_tile.y)
 							readyForBattle = True
 					elif closest_tile and not target:
+						houseToDestroy = None
 						for house in gameState.level.houses:
 							if house.position == closest_tile and not house.destroyed:
-								house.destroy()
+								houseToDestroy = house
+								break
+						if houseToDestroy:
+							thumby.audio.play(note_to_freq("G4"), 80)	
+						else:
+							thumby.audio.play(note_to_freq("F5"), 20)
 						activeEnemy.set_position(closest_tile)
 						activeEnemy.set_moved(True)
 						activeEnemy.set_exhausted(True)
@@ -4838,6 +4712,7 @@ async def main():
 							if attackPos != None:
 								activeEnemy = e
 								gameState.update_selector_position(activeEnemy.position.x, activeEnemy.position.y)
+								thumby.audio.play(note_to_freq("Bb5"), 20)
 								break
 							else:
 								readyForBattle = False
@@ -4845,12 +4720,14 @@ async def main():
 								e.set_exhausted(True)
 
 					if all(e.exhausted for e in gameState.level.enemies):
+						thumby.audio.play(note_to_freq("F6"), 100)
 						gameState.end_turn()
 
 		elif gameState.state == 'end':
 			thumby.display.fill(thumby.display.WHITE)
 			thumby.display.drawText("You Win!", 20, 24, thumby.display.BLACK)
 			if thumby.buttonA.justPressed():
+				thumby.audio.play(note_to_freq("F#6"), 100)
 				gameState.cancel_cat_select()
 				gameState.set_state('title')
 
@@ -4858,11 +4735,11 @@ async def main():
 			thumby.display.fill(thumby.display.WHITE)
 			thumby.display.drawText("Game Over", 15, 24, thumby.display.BLACK)
 			if thumby.buttonA.justPressed():
+				thumby.audio.play(note_to_freq("F#5"), 100)
 				gameState.cancel_cat_select()
 				gameState.set_state('title')
-
-		thumby.display.update()
-		await asyncio.sleep(0)
+		
+		await thumby.display.update()
 
 
 asyncio.run(main())

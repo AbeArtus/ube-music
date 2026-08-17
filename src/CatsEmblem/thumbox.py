@@ -184,6 +184,7 @@ class Thumby:
                 self.LIGHTGRAY = 3
 
                 self._fps = 0  # non-limiting
+                self._last_frame_time = 0.0
                 self._surface = pygame.Surface((self.width, self.height))
                 self._windowed_size = (self.width * SCALE, self.height * SCALE)
                 self._fullscreen = False
@@ -286,7 +287,8 @@ class Thumby:
                 self.textBitmap = bytearray(self.textWidth)
                 self.textCharCount = os.stat(self.textBitmapSource)[6] // self.textWidth
 
-            def update(self):
+            async def update(self):
+                import asyncio
                 self._thumby._poll_input()
                 screen_width, screen_height = self._screen.get_size()
                 scale = min(screen_width / self.width, screen_height / self.height)
@@ -304,12 +306,12 @@ class Thumby:
                     ),
                 )
                 pygame.display.flip()
-                if self._fps != 0:
-                    pygame.time.wait(1000 // self._fps)
                 self._thumby._finish_frame()
+                await asyncio.sleep(max(0, (1.0 / self._fps) - (time.time() - self._last_frame_time)))
+                self._last_frame_time = time.time()
 
             def setFPS(self, FPS: int = 0) -> None:
-                self._fps = FPS
+                self._fps = max(0, int(FPS))
 
             def fill(self, color):
                 self._surface.fill(self._grayColor(color))
@@ -475,24 +477,54 @@ class Thumby:
                 )
 
     class ThumbyAudio:
+        _MIN_DURATION_MS = 50  # browser audio buffer needs at least ~50ms
+
         def __init__(self):
             self._freq = 0
+            pygame.mixer.quit()
+            pygame.mixer.init(frequency=44100, size=-16, channels=2)
+            actual_freq, actual_size, actual_channels = pygame.mixer.get_init()
+            self._sample_rate = actual_freq
+            self._channels = actual_channels
+            self._bit_depth = abs(actual_size)
+            self._sound_cache = {}
+            pygame.mixer.set_num_channels(4)
+            self._channel = pygame.mixer.Channel(0)
 
-        def play(self, freq, duration):
-            self._freq = freq
-            sample_rate = 44100  # sampling rate in Hz
-            num_samples = int(sample_rate * duration)
-            amplitude = 32767
-            samples = array.array("h")
+        def _make_samples(self, freq, duration):
+            sample_rate = self._sample_rate
+            duration_sec = duration / 1000.0 
+            num_samples = max(1, int(sample_rate * duration_sec))
+
+            if self._bit_depth == 16:
+                amplitude = 32767
+                samples = array.array("h")
+            elif self._bit_depth == 8:
+                amplitude = 127
+                samples = array.array("b")
+            else:
+                amplitude = 32767
+                samples = array.array("h")
+
             for i in range(num_samples):
                 value = int(
                     amplitude * math.sin(2 * math.pi * freq * i / sample_rate)
                 )
-                samples.append(value)
-                samples.append(value)
-            pygame.mixer.init(frequency=sample_rate, size=-16, channels=2)
-            sound = pygame.mixer.Sound(buffer=samples.tobytes())
-            sound.play()
+                for _ in range(self._channels):
+                    samples.append(value)
+            return samples
+
+        def play(self, freq, duration):
+            self._freq = freq
+            duration = max(duration, self._MIN_DURATION_MS)
+            key = (freq, duration)
+
+            sound = self._sound_cache.get(key)
+            if sound is None:
+                samples = self._make_samples(freq, duration)
+                sound = pygame.mixer.Sound(buffer=samples.tobytes())
+                self._sound_cache[key] = sound
+            self._channel.play(sound)
 
         def playBlocking(self, freq, duration):
             self.play(freq, duration)
@@ -500,7 +532,7 @@ class Thumby:
                 pygame.time.wait(100)
 
         def stop(self):
-            pygame.mixer.music.stop()
+            self._channel.stop()
 
         def setEnabled(self, setting):
             if setting:

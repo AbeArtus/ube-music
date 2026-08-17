@@ -5,6 +5,8 @@ Sprite = thumbox.Thumby().Sprite
 
 syspath.insert(0, '/Games/CatsEmblem')
 
+from MapData import tileEncumberence, canWalkOn
+
 classEnum = {
     'pupil': 0,
     'warrior': 1,
@@ -36,6 +38,8 @@ classAdvantages = {
 }
 
 class Position:
+    __slots__ = ('x', 'y')
+
     def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
@@ -52,6 +56,8 @@ class Position:
         return Position(self.x, self.y)
 
 class Stats:
+    __slots__ = ('attack', 'defense', 'max_hp', 'speed', 'luck', 'range')
+
     def __init__(
             self,
             attack: int = 3,
@@ -70,6 +76,8 @@ class Stats:
 
 
 class GrowthRates:
+    __slots__ = ('attack', 'defense', 'max_hp', 'speed', 'luck', 'range')
+
     def __init__(
             self,
             attack: int = 40,
@@ -87,6 +95,8 @@ class GrowthRates:
         self.range = range
 
 class WeaponExp:
+    __slots__ = ('sword', 'repeater', 'longbow', 'bow', 'lightning', 'water', 'earth', 'mace', 'spear')
+
     def __init__(
             self,
             sword: int = 0,
@@ -141,12 +151,16 @@ class WeaponExp:
                     setattr(self, weapon_type, 0)
 
 class Option:
+    __slots__ = ('label', 'action', 'condition')
+
     def __init__(self, label, action, condition=lambda: True):
         self.label = label
         self.action = action
         self.condition = condition
 
 class Menu:
+    __slots__ = ('options', 'title', 'option_index', 'menu_index', 'leave_action')
+
     def __init__(self, options, title=None, option_index=0, menu_index=0, leave_action=None):
         self.options = options
         self.title = title if title else [lambda: ""]
@@ -163,7 +177,13 @@ class Menu:
         return valid_options[offset:offset + max_visible], offset
 
 class Cat:
-    _id_counter = 0  # Class variable for unique IDs
+    _id_counter = 0
+    __slots__ = (
+        'id', '_sprite', '_sprite_factory', 'position', 'selected', 'exhausted',
+        'name', 'stats', 'growthRates', 'enemy', 'hp', 'exp', 'moved', 'level',
+        'next_level_exp', 'aiType', 'aiPath', 'items', 'max_items', 'classType',
+        'weaponExp', '_class_sprite', '_class_sprite_key'
+    )
 
     def __init__(
         self,
@@ -266,18 +286,18 @@ class Cat:
         self.set_hp(self.stats.max_hp)
         self.set_selected(False)
 
-    def getClassSprite(self, position: Position = Position(0, 0)):
+    def getClassSprite(self, x=0, y=0):
         sprite_key = (self.enemy, self.classType)
         sprite_data = get_class_overlay_data().get(sprite_key)
         if sprite_data is None:
             return None
 
         if self._class_sprite is None or self._class_sprite_key != sprite_key:
-            self._class_sprite = Sprite(8, 8, sprite_data, position.x, position.y, key=1)
+            self._class_sprite = Sprite(8, 8, sprite_data, x, y, key=1)
             self._class_sprite_key = sprite_key
         else:
-            self._class_sprite.x = position.x
-            self._class_sprite.y = position.y
+            self._class_sprite.x = x
+            self._class_sprite.y = y
         return self._class_sprite
 
     def use_item(self, item_index):
@@ -318,9 +338,9 @@ class Cat:
     def set_enemy(self, enemy):
         self.enemy = enemy
 
-    def set_sprite_position(self, position):
-        self.sprite.x = position.x
-        self.sprite.y = position.y
+    def set_sprite_position(self, x, y):
+        self.sprite.x = x
+        self.sprite.y = y
 
     def set_hp(self, new_hp):
         self.hp = min(new_hp, self.stats.max_hp)
@@ -331,8 +351,13 @@ class Cat:
         self.sprite.setFrame(nextFrame)
 
     def add_exp(self, amount, addDialog=None):
+        if amount <= 0:
+            return
         levels_gained = ((self.exp % 20) + amount) // 20
         self.exp += amount
+
+        if addDialog and not self.enemy:
+            addDialog([f"{self.name} gained", f"{amount} exp!"], self)
 
         for _ in range(levels_gained):
             self.level_up(addDialog)
@@ -376,7 +401,7 @@ class Cat:
 
     def promote(self, new_class: str):
         self.classType = new_class
-        self.classSprite = self.getClassSprite(self.position)
+        self._class_sprite = None
         self.exp = 0
         self.next_level_exp = 12
         if new_class == 'warrior':
@@ -396,6 +421,8 @@ class Cat:
             self.weaponExp.add_weapons(['lightning', 'water', 'earth'])
 
 class Dialog:
+    __slots__ = ('lines', 'currentlyTalking', 'left_cats', 'right_cats', 'lambda_after', 'decision', 'overlay', 'timeout')
+
     def __init__(
         self,
         lines=None,
@@ -417,6 +444,8 @@ class Dialog:
         self.timeout = timeout
 
 class House:
+    __slots__ = ('position', 'dialogs', 'preVisitedDialogs', 'postVisitDialog', 'visitCondition', 'multipleVisits', 'visited', 'destroyed')
+
     def __init__(
         self,
         position,
@@ -463,7 +492,8 @@ class House:
         if not self.visited and self.visitCondition():
             return self.dialogs
         if self.visited and self.postVisitDialog:
-            return self.postVisitDialog
+            d = self.postVisitDialog
+            return d if isinstance(d, list) else [d]
         return []
 
     def destroy(self):
@@ -474,11 +504,15 @@ class House:
         self.visitCondition = lambda: False
 
 class ShopItem:
-    def __init__(self, item: Item, price: int):
+    __slots__ = ('item', 'price')
+
+    def __init__(self, item, price):
         self.item: Item = item
         self.price: int = price
 
 class Shop:
+    __slots__ = ('position', 'inventory')
+
     def __init__(
         self,
         position: Position,
@@ -490,18 +524,24 @@ class Shop:
 # --- CLASSES ---
 
 class AttackLog:
+    __slots__ = (
+        'attacker_name', 'attacker_hp', 'attacker_max_hp', 'attacker_enemy', 'attacker_sprite',
+        'defender_name', 'defender_hp', 'defender_max_hp', 'defender_enemy', 'defender_sprite',
+        'damage', 'old_hp', 'new_hp', 'miss', 'dodge', 'text', 'static_render_time'
+    )
+
     def __init__(
         self,
         attacker_name: str,
         attacker_hp: int,
         attacker_max_hp: int,
         attacker_enemy: bool,
-        attacker_sprite: Sprite,
-        defender_name: str,
+        attacker_sprite,
+        defender_name,
         defender_hp: int,
         defender_max_hp: int,
         defender_enemy: bool,
-        defender_sprite: Sprite,
+        defender_sprite,
         damage: int,
         old_hp: int,
         new_hp: int,
@@ -529,6 +569,8 @@ class AttackLog:
         self.static_render_time = static_render_time
 
 class Button:
+    __slots__ = ('position', 'pressed', 'pressAction', 'canPress', 'unPressAction', 'canUnpress')
+
     def __init__(self, position, pressed=None, pressAction=None, unPressAction=None, canUnpress=None, canPress=None):
         self.position = position
         self.pressed = False if pressed is None else pressed
@@ -557,6 +599,8 @@ class Button:
             return self.canPress
 
 class Blockade:
+    __slots__ = ('positions', 'cleared')
+
     def __init__(self, positions, cleared=None):
         self.positions = positions
         self.cleared = cleared if cleared is not None else False
@@ -568,12 +612,16 @@ class Blockade:
         self.cleared = False
 
 class OverlayObject:
+    __slots__ = ('position', 'objectName', 'boundPositions')
+
     def __init__(self, position, objectName, boundPositions):
         self.position = position
         self.objectName = objectName
         self.boundPositions = boundPositions
 
 class Conversation:
+    __slots__ = ('dialogs', 'nameOne', 'nameTwo', 'condition')
+
     def __init__(
         self,
         dialogs,
@@ -587,6 +635,11 @@ class Conversation:
         self.condition = condition
 
 class Level:
+    __slots__ = (
+        'map', 'enemies', 'viewport', 'selectorPosition', 'number', 'seizePosition',
+        'startingPositions', 'shops', 'houses', 'conversations', 'buttons', 'blockades', 'overlayObjects'
+    )
+
     def __init__(
         self,
         map,
@@ -624,7 +677,7 @@ class Level:
         def is_walkable(x, y):
             if not (0 <= x < map_width and 0 <= y < map_height):
                 return False
-            return canWalkOn.get(self.map[y][x], False)
+            return self.map[y][x] in canWalkOn
 
         def get_occupying_unit(x, y):
             for unit in party:
@@ -647,10 +700,15 @@ class Level:
         # Tracks best remaining_range seen per (x, y); skip re-processing if not improved.
         position_weight = {}
         valid_positions = set()
-        queue = [(cx, cy, range)]  # used as a stack — pop() is O(1) vs pop(0) O(n)
+        queue = [(cx, cy, range)] 
 
         while queue:
             x, y, rem = queue.pop()
+
+            if not is_walkable(x, y):
+                continue
+            elif is_barrier(x, y):
+                continue
 
             key = (x, y)
             position_weight[key] = rem
@@ -658,28 +716,63 @@ class Level:
             occupied_by_enemy = occupying_unit is not None and occupying_unit.enemy != cat.enemy
             occupied_by_ally = occupying_unit is not None and occupying_unit.enemy == cat.enemy
 
-            if not is_walkable(x, y):
-                continue
-            elif is_barrier(x, y):
-                continue
-            elif occupied_by_enemy:
+            if occupied_by_enemy:
                 continue
             elif not occupied_by_ally or (occupied_by_ally and not cat.enemy) or (x == cx and y == cy):
-                valid_positions.add(Position(x, y))
+                valid_positions.add((x, y))
 
             if rem > 0:
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = x +dx, y + dy
                     nkey = (nx, ny)
-                    if nkey not in position_weight or rem - 1 > position_weight[nkey]:
-                        queue.append((nx, ny, rem - 1))
+                    encumbernce = tileEncumberence.get(self.map[y][x], 1)
+                    if nkey not in position_weight or rem - encumbernce > position_weight[nkey]:
+                        queue.append((nx, ny, rem - encumbernce))
 
         return list(valid_positions)
 
-def cat_sprite(): return Sprite(8, 8, cat_sprite_sheet(), 32, 16, key=1)
-def enemy_sprite(): return Sprite(8, 8, enemy_sprite_sheet(), 32, 16, key=1)
-def button_sprite(pos): return Sprite(8, 8, button_sprite_sheet(), pos.x, pos.y)
-def cat_head(pos): return Sprite(40, 40, cat_head_sprite_sheet(), pos.x, pos.y, 1)
+_cat_sprite = None
+_enemy_sprite = None
+_button_sprite = None
+_cat_head_sprite = None
+
+def cat_sprite():
+    global _cat_sprite
+    if _cat_sprite is None:
+        from MapData import cat_sprite_sheet
+        _cat_sprite = Sprite(8, 8, cat_sprite_sheet(), 32, 16, key=1)
+    return _cat_sprite
+
+def enemy_sprite():
+    global _enemy_sprite
+    if _enemy_sprite is None:
+        from MapData import enemy_sprite_sheet
+        _enemy_sprite = Sprite(8, 8, enemy_sprite_sheet(), 32, 16, key=1)
+    return _enemy_sprite
+
+def button_sprite(x=0, y=0):
+    global _button_sprite
+    if _button_sprite is None:
+        from MapData import button_sprite_sheet
+        _button_sprite = Sprite(8, 8, button_sprite_sheet(), x, y)
+    else:
+        _button_sprite.x = x
+        _button_sprite.y = y
+    return _button_sprite
+
+def cat_head(x=16, y=14):
+    global _cat_head_sprite
+    if _cat_head_sprite is None:
+        from MapData import cat_head_sprite_sheet
+        _cat_head_sprite = Sprite(40, 40, cat_head_sprite_sheet(), x, y, 1)
+    else:
+        _cat_head_sprite.x = x
+        _cat_head_sprite.y = y
+    return _cat_head_sprite
+
+def release_title_sprites():
+    global _cat_head_sprite
+    _cat_head_sprite = None
 
 # --- UNITS (lazy) ---
 _unit_cache = {}
@@ -689,8 +782,8 @@ def _build_cat_unit():
         sprite=cat_sprite,
         position=Position(2, 4),
         name='cat',
-        stats=Stats(max_hp=10, defense=4, attack=4, speed=3, luck=3, range=4),
-        growthRates=GrowthRates(attack=45, defense=45, luck=50, range=20),
+        stats=Stats(max_hp=10, defense=3, attack=4, luck=3, range=4),
+        growthRates=GrowthRates(attack=45, defense=45, luck=35, range=15),
         items=[itemDict['Stick'], itemDict['Tuna']],
     )
 
@@ -699,7 +792,7 @@ def _build_tac_unit():
         sprite=cat_sprite,
         position=Position(5, 13),
         name='tac',
-        stats=Stats(defense=3, attack=4, speed=5, luck=3, range=4),
+        stats=Stats(attack=4, defense=3, speed=4, range=4),
         growthRates=GrowthRates(defense=50, speed=70, luck=25, range=15),
         items=[itemDict['Slngsht']]
     )
@@ -720,7 +813,7 @@ def _build_bub_unit():
         sprite=cat_sprite,
         name='bub',
         position=Position(8, 14),
-        stats=Stats(attack=4, defense=3, speed=4, luck=4, range=4),
+        stats=Stats(attack=4, defense=3, luck=4, range=4),
         enemy=False,
         classType='sniper',
         items=[itemDict['Repeater'], itemDict['Tuna']],
@@ -776,21 +869,22 @@ def get_npc():
     return _get_or_create_unit('npc', _build_npc_unit)
 
 class PathPoint:
-    def __init__(self, position: Position):
+    __slots__ = ('position', 'visited')
+
+    def __init__(self, position):
         self.position = position
         self.visited = False
 
     def mark_visited(self):
         self.visited = True
 
-def generate_enemy(level: int, position: Position, ai='searchAndDestroy', name='pig', weapon="Stick", classType='pupil', path=None):
-    enemySprite = enemy_sprite()
+def generate_enemy(level, position, ai='searchAndDestroy', name='pig', weapon="Stick", classType='pupil', path=None):
     bigBoiPath = []
     if path is not None:
         for p in path:
             bigBoiPath.append(PathPoint(p))
     e = Cat(
-        sprite=enemySprite,
+        sprite=enemy_sprite,
         position=position,
         name=name,
         enemy=True,
@@ -810,34 +904,18 @@ def fetch_level(level_number):
         sys.modules.pop('ActTwo', None)
         from ActOne import ActOneLevels, set_game_state_callbacks
         set_game_state_callbacks(*CALLBACKS)
-        levels = ActOneLevels
-
-        if level_number == 1:
-            return levels._build_level1()
-        elif level_number == 2:
-            return levels._build_level2()
-        elif level_number == 3:
-            return levels._build_level3()
-        elif level_number == 4:
-            return levels._build_level4()
-        elif level_number == 5:
-            return levels._build_level5()
-        return None
-    else:
-        sys.modules.pop('ActOne', None)
-        from ActTwo import ActTwoLevels, set_game_state_callbacks
-        set_game_state_callbacks(*CALLBACKS)
-        levels = ActTwoLevels
-
-        if level_number == 6:
-            return levels._build_level6()
-        elif level_number == 7:
-            return levels._build_level7()
-        elif level_number == 8:
-            return levels._build_level8()
-        elif level_number == 9:
-            return levels._build_level9()
-        elif level_number == 10:
-            return levels._build_level10()
-        else:
-            return None
+        builder = (
+            ActOneLevels._build_level1, ActOneLevels._build_level2, ActOneLevels._build_level3,
+            ActOneLevels._build_level4, ActOneLevels._build_level5
+        )[level_number - 1]
+        level = builder()
+        return level
+    sys.modules.pop('ActOne', None)
+    from ActTwo import ActTwoLevels, set_game_state_callbacks
+    set_game_state_callbacks(*CALLBACKS)
+    builder = (
+        ActTwoLevels._build_level6, ActTwoLevels._build_level7, ActTwoLevels._build_level8,
+        ActTwoLevels._build_level9, ActTwoLevels._build_level10
+    )[level_number - 6]
+    level = builder()
+    return level

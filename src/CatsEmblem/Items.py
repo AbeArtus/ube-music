@@ -114,15 +114,17 @@ def _build_item(item_name: str):
         return Item(name="NewBal", item_type="consumable", effect={"speed": 3})
     raise KeyError(item_name)
 
+_ITEM_NAMES = frozenset((
+    "Stick", "Slngsht", "LghtngTm", "WaterTm", "EarthTm",
+    "LongBow", "Bow", "Repeater", "Sword", "Spear", "Mace",
+    "MagPowder", "RabFoot", "Armor", "PowerRing", "NewBal",
+    "NecTome", "BulTome", "MultiShot", "Launcher", "Axe", "VoidSwd",
+    "Tuna", "MystPot", "MstMeal", "MstQll"
+))
+
 class LazyItemDict:
     def __contains__(self, key):
-        return key in {
-            "Stick", "Slngsht", "LghtngTm", "WaterTm", "EarthTm",
-            "LongBow", "Bow", "Repeater", "Sword", "Spear", "Mace",
-            "MagPowder", "RabFoot", "Armor", "PowerRing", "NewBal",
-            "NecTome", "BulTome", "MultiShot", "Launcher", "Axe", "VoidSwd",
-            "Tuna", "MystPot", "MstMeal", "MstQll"
-        }
+        return key in _ITEM_NAMES
 
     def __getitem__(self, key):
         if key not in self:

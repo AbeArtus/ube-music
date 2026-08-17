@@ -4,48 +4,10 @@ syspath.insert(0, '/Games/CatsEmblem')
 from Items import itemDict
 from Shared import Conversation, Dialog, House, Position, Shop, ShopItem, Level, generate_enemy
 
-_add_to_party = None
-_update_bank = None
-_can_give_item = None
-_give_item = None
-_get_cat_at_pos = None
-_get_selected_cat = None
+from Callbacks import add_to_party as add_party_member, update_bank as modify_bank, can_give_item, give_item, get_cat_at_pos as get_cat_at_position, get_selected_cat
 
-def set_game_state_callbacks(add_to_party, update_bank, can_give_item, give_item, get_cat_at_pos, get_selected_cat):
-	global _add_to_party, _update_bank, _can_give_item, _give_item, _get_cat_at_pos, _get_selected_cat
-	_add_to_party = add_to_party
-	_update_bank = update_bank
-	_can_give_item = can_give_item
-	_give_item = give_item
-	_get_cat_at_pos = get_cat_at_pos
-	_get_selected_cat = get_selected_cat
-
-def add_party_member(cat):
-	if _add_to_party:
-		_add_to_party(cat)
-
-def modify_bank(amount):
-	if _update_bank:
-		_update_bank(amount)
-
-def can_give_item(position: Position) -> bool:
-	if _can_give_item:
-		return _can_give_item(position)
-	return False
-
-def give_item(position: Position, item) -> bool:
-	if _give_item:
-		_give_item(position, item)
-
-def get_cat_at_position(position: Position):
-	if _get_cat_at_pos:
-		return _get_cat_at_pos(position)
-	return None
-
-def get_selected_cat():
-	if _get_selected_cat:
-		return _get_selected_cat()
-	return None
+def set_game_state_callbacks(*_args):
+	pass
 
 
 class ActOneLevels:
